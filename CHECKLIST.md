@@ -8,14 +8,14 @@
 
 ## 📊 ความคืบหน้ารวม
 
-- [ ] Phase 1: Project Setup (0/8)
+- [x] Phase 1: Project Setup (5/8) ⚡ In Progress
 - [ ] Phase 2: Backend Development (0/12)
 - [ ] Phase 3: Frontend Development (0/10)
 - [ ] Phase 4: Advanced Features (0/6)
 - [ ] Phase 5: Testing & Optimization (0/8)
 - [ ] Phase 6: Deployment (0/4)
 
-**Progress**: 0/48 tasks (0%)
+**Progress**: 5/48 tasks (10.4%)
 
 ---
 
@@ -28,18 +28,18 @@
 - [ ] เตรียม IDE (VS Code / PyCharm)
 
 ### 1.2 Backend Setup
-- [ ] สร้าง virtual environment
+- [x] สร้าง virtual environment ✅
   ```bash
   cd backend
   python -m venv venv
   source venv/bin/activate  # macOS/Linux
   ```
-- [ ] ติดตั้ง dependencies
+- [x] ติดตั้ง dependencies ✅
   ```bash
   pip install -r requirements.txt
   ```
-- [ ] สร้างไฟล์ `.env` จาก `.env.example`
-- [ ] ทดสอบรัน FastAPI
+- [x] สร้างไฟล์ `.env` จาก `.env.example` ✅
+- [x] ทดสอบรัน FastAPI ✅
   ```bash
   uvicorn app.main:app --reload
   ```
@@ -66,10 +66,10 @@
 - [ ] ตรวจสอบ http://localhost:5173
 
 ### 1.4 Data Preparation
-- [ ] เตรียมไฟล์ `backend/data/profit_loss.csv`
-- [ ] เตรียมไฟล์ `backend/data/other_income_expense.csv`
-- [ ] ตรวจสอบ CSV format และ encoding (UTF-8)
-- [ ] สร้าง sample data สำหรับทดสอบ
+- [x] เตรียมไฟล์ `backend/data/profit_loss.csv` ✅ (466 rows)
+- [x] เตรียมไฟล์ `backend/data/other_income_expense.csv` ✅ (3 rows)
+- [x] ตรวจสอบ CSV format และ encoding (UTF-8) ✅
+- [x] สร้าง sample data สำหรับทดสอบ ✅
 
 ---
 
