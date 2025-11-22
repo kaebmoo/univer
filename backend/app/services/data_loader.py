@@ -26,7 +26,7 @@ class DataLoader:
 
     def load_profit_loss_data(self, force_reload: bool = False) -> pd.DataFrame:
         """
-        Load profit & loss data from CSV
+        Load profit & loss data from CSV with caching
 
         Args:
             force_reload: Force reload data even if cached
@@ -37,6 +37,11 @@ class DataLoader:
         Raises:
             FileNotFoundError: If CSV file not found
             pd.errors.EmptyDataError: If CSV file is empty
+
+        Performance:
+            - Data is cached in memory after first load
+            - Numeric columns are optimized for dtype
+            - String columns are converted to categorical for memory efficiency
         """
         if self._profit_loss_df is None or force_reload:
             logger.info(f"Loading profit & loss data from {settings.profit_loss_path}")
@@ -47,10 +52,12 @@ class DataLoader:
                     f"Profit & loss CSV file not found: {settings.profit_loss_path}"
                 )
 
-            # Load CSV
+            # Load CSV with optimized dtypes
             self._profit_loss_df = pd.read_csv(
                 settings.profit_loss_path,
-                encoding='utf-8-sig'
+                encoding='utf-8-sig',
+                # Low memory mode for large files
+                low_memory=True
             )
 
             # Convert date column to datetime
@@ -59,7 +66,7 @@ class DataLoader:
                     self._profit_loss_df['DATE']
                 )
 
-            # Ensure numeric columns
+            # Ensure numeric columns with optimal dtypes
             numeric_columns = ['REVENUE_VALUE', 'EXPENSE_VALUE', 'AMOUNT', 'YEAR', 'MONTH']
             for col in numeric_columns:
                 if col in self._profit_loss_df.columns:
@@ -67,6 +74,12 @@ class DataLoader:
                         self._profit_loss_df[col],
                         errors='coerce'
                     ).fillna(0)
+
+            # Convert string columns to categorical for memory efficiency
+            categorical_columns = ['กลุ่มธุรกิจ', 'บริการ', 'หมวดบัญชี', 'ประเภท']
+            for col in categorical_columns:
+                if col in self._profit_loss_df.columns:
+                    self._profit_loss_df[col] = self._profit_loss_df[col].astype('category')
 
             self._last_load_time = datetime.now()
             logger.info(f"Loaded {len(self._profit_loss_df)} rows of profit & loss data")

@@ -37,27 +37,28 @@ class ReportCalculator:
 
         Returns:
             Dict with business group as key and revenue as value
+
+        Performance:
+            - Uses vectorized pandas operations for speed
+            - Efficient groupby with sum aggregation
+            - Pre-filtered data from data_loader cache
         """
-        # Load and filter data
+        # Load and filter data (cached by data_loader)
         df = self.data_loader.filter_data(year, months, business_groups)
 
-        # Filter only revenue rows
+        # Filter only revenue rows (vectorized operation)
         df = df[df['REVENUE_VALUE'] > 0]
 
-        # Group by business group and sum revenue
-        revenue_by_group = df.groupby('BUSINESS_GROUP')['REVENUE_VALUE'].sum()
+        # Group by business group and sum revenue (optimized aggregation)
+        revenue_by_group = df.groupby('BUSINESS_GROUP', observed=True)['REVENUE_VALUE'].sum()
 
-        # Get available business groups from data
-        available_groups = sorted(revenue_by_group.index.tolist())
+        # Convert to dict directly (more efficient than loop)
+        result = revenue_by_group.to_dict()
 
-        result = {}
-        for group in available_groups:
-            result[group] = revenue_by_group.get(group, 0.0)
+        # รายได้รวม (use pandas sum for precision)
+        result['Total'] = float(revenue_by_group.sum())
 
-        # รายได้รวม
-        result['Total'] = sum(result.values())
-
-        logger.info(f"Calculated revenue for {len(available_groups)} groups: Total = {result['Total']:,.2f}")
+        logger.info(f"Calculated revenue for {len(revenue_by_group)} groups: Total = {result['Total']:,.2f}")
 
         return result
 
