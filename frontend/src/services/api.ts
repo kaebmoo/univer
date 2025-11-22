@@ -112,6 +112,13 @@ class ApiClient {
     return response.data;
   }
 
+  async exportToExcel(filter: ReportFilter): Promise<Blob> {
+    const response = await this.client.post('/report/export', filter, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
   // ===== Health Check =====
 
   async healthCheck(): Promise<{ status: string }> {

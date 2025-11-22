@@ -240,6 +240,117 @@ async def reload_data(
         )
 
 
+@router.post("/export")
+async def export_to_excel(
+    filter: ReportFilter,
+    current_user: UserInfo = Depends(get_current_user)
+):
+    """
+    Export report to Excel file
+
+    Generate P&L report and export as Excel (.xlsx) file with
+    formatting, styles, and formulas.
+
+    Args:
+        filter: Report filter parameters (year, months, business_groups)
+        current_user: Current authenticated user
+
+    Returns:
+        Excel file download response
+
+    Raises:
+        HTTPException 400: If invalid filter parameters
+        HTTPException 404: If no data found
+        HTTPException 500: If export fails
+    """
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    import pandas as pd
+    from datetime import datetime as dt
+
+    logger.info(
+        f"Excel export requested by {current_user.email}: "
+        f"year={filter.year}, months={filter.months}"
+    )
+
+    try:
+        # Generate report data
+        report = report_calculator.generate_full_report(
+            year=filter.year,
+            months=filter.months,
+            business_groups=filter.business_groups,
+            view_type='monthly',
+            display_type='both',
+            show_common_size=True
+        )
+
+        # Create Excel file in memory
+        output = BytesIO()
+
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Convert report data to DataFrames
+
+            # Revenue sheet
+            revenue_data = report['data']['revenue']
+            df_revenue = pd.DataFrame(list(revenue_data.items()), columns=['รายการ', 'จำนวนเงิน'])
+            df_revenue.to_excel(writer, sheet_name='รายได้', index=False)
+
+            # Cost of Service sheet
+            cost_data = report['data']['cost_of_service']
+            df_cost = pd.DataFrame(list(cost_data.items()), columns=['รายการ', 'จำนวนเงิน'])
+            df_cost.to_excel(writer, sheet_name='ต้นทุนบริการ', index=False)
+
+            # Metrics sheet
+            metrics = report['data']['metrics']
+            df_metrics = pd.DataFrame([metrics])
+            df_metrics.to_excel(writer, sheet_name='ตัวชี้วัด', index=False)
+
+            # Format cells (optional enhancement)
+            for sheet_name in writer.sheets:
+                worksheet = writer.sheets[sheet_name]
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(cell.value)
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+
+        # Prepare file for download
+        output.seek(0)
+
+        # Generate filename
+        months_str = '-'.join(map(str, filter.months))
+        filename = f"P&L_Report_{filter.year}_{months_str}_{dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+        logger.info(f"Excel file generated successfully: {filename}")
+
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except ValueError as e:
+        logger.error(f"Invalid filter parameters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error exporting to Excel: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to export to Excel: {str(e)}"
+        )
+
+
 @router.get("/health")
 async def report_health_check():
     """

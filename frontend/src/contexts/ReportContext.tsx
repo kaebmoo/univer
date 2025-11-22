@@ -16,6 +16,7 @@ interface ReportContextType {
   loadFilterOptions: () => Promise<void>;
   generateReport: (filter: ReportFilter) => Promise<void>;
   generateUniverSnapshot: (filter: ReportFilter) => Promise<void>;
+  exportReport: (filter: ReportFilter) => Promise<void>;
   setCurrentFilter: (filter: ReportFilter) => void;
   clearError: () => void;
   clearReport: () => void;
@@ -98,6 +99,40 @@ export const ReportProvider: React.FC<ReportProviderProps> = ({ children }) => {
     }
   };
 
+  const exportReport = async (filter: ReportFilter) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const blob = await apiClient.exportToExcel(filter);
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate filename
+      const monthsStr = filter.months.join('-');
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.download = `P&L_Report_${filter.year}_${monthsStr}_${timestamp}.xlsx`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail || 'Failed to export report.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const clearError = () => {
     setError(null);
   };
@@ -118,6 +153,7 @@ export const ReportProvider: React.FC<ReportProviderProps> = ({ children }) => {
     loadFilterOptions,
     generateReport,
     generateUniverSnapshot,
+    exportReport,
     setCurrentFilter,
     clearError,
     clearReport,

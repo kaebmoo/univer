@@ -3,8 +3,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Card, Empty, Spin, Alert } from 'antd';
-import { FileTextOutlined } from '@ant-design/icons';
+import { Card, Empty, Spin, Alert, Button, Space, message } from 'antd';
+import { FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Univer } from '@univerjs/core';
 import { defaultTheme } from '@univerjs/design';
 import { UniverDocsPlugin } from '@univerjs/docs';
@@ -19,9 +19,23 @@ import { UniverUIPlugin } from '@univerjs/ui';
 import { useReport } from '../contexts/ReportContext';
 
 export const ReportViewer: React.FC = () => {
-  const { univerSnapshot, isLoading, error, currentFilter } = useReport();
+  const { univerSnapshot, isLoading, error, currentFilter, exportReport } = useReport();
   const containerRef = useRef<HTMLDivElement>(null);
   const univerRef = useRef<Univer | null>(null);
+
+  const handleExport = async () => {
+    if (!currentFilter) {
+      message.warning('กรุณาสร้างรายงานก่อนทำการ Export');
+      return;
+    }
+
+    try {
+      await exportReport(currentFilter);
+      message.success('ดาวน์โหลดไฟล์ Excel สำเร็จ');
+    } catch (err) {
+      message.error('เกิดข้อผิดพลาดในการ Export');
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current || !univerSnapshot) return;
@@ -112,6 +126,18 @@ export const ReportViewer: React.FC = () => {
         currentFilter
           ? `รายงานผลดำเนินงาน ปี ${currentFilter.year} (${currentFilter.months.length} เดือน)`
           : 'รายงานผลดำเนินงาน'
+      }
+      extra={
+        univerSnapshot && currentFilter && (
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            loading={isLoading}
+          >
+            Export to Excel
+          </Button>
+        )
       }
       bodyStyle={{ padding: 0 }}
     >
