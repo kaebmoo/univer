@@ -17,23 +17,31 @@ class UniverConverter:
 
     # สีที่ใช้ในรายงาน
     COLORS = {
-        "header": "#4472C4",           # สีน้ำเงิน
-        "revenue": "#E7E6E6",          # สีเทาอ่อน
-        "cost_header": "#F4B084",      # สีส้มอ่อน
-        "gross_profit": "#C5E0B4",     # สีเขียวอ่อน
-        "selling_header": "#FFD966",   # สีเหลืองอ่อน
-        "admin_header": "#B4C7E7",     # สีฟ้าอ่อน
-        "ebit": "#FFFF00",             # สีเหลือง
-        "ebitda": "#FFD700",           # สีทอง
-        "net_profit": "#00B050",       # สีเขียวเข้ม
+        "header": "#4472C4",           # สีน้ำเงิน - header หลัก
+        "header_white": "#FFFFFF",     # สีขาว - text สำหรับ header
+        "revenue": "#E7E6E6",          # สีเทาอ่อน - ส่วนรายได้
+        "revenue_total": "#D9D9D9",    # สีเทาเข้มขึ้น - รายได้รวม
+        "cost_header": "#F4B084",      # สีส้มอ่อน - ต้นทุนบริการ
+        "cost_total": "#F8CBAD",       # สีส้มเข้มขึ้น - ต้นทุนรวม
+        "gross_profit": "#C5E0B4",     # สีเขียวอ่อน - กำไรขั้นต้น
+        "selling_header": "#FFD966",   # สีเหลืองอ่อน - ค่าใช้จ่ายขาย
+        "admin_header": "#B4C7E7",     # สีฟ้าอ่อน - ค่าใช้จ่ายบริหาร
+        "ebit": "#FFF2CC",             # สีเหลืองอ่อนมาก - EBIT
+        "ebitda": "#FFE699",           # สีเหลืองทอง - EBITDA
+        "net_profit": "#92D050",       # สีเขียวสด - กำไรสุทธิ
+        "negative": "#FF0000",         # สีแดง - ค่าติดลบ
         "white": "#FFFFFF",            # สีขาว
+        "light_gray": "#F2F2F2",       # สีเทาอ่อนมาก - พื้นหลังสลับ
     }
 
     # Number formats
     NUMBER_FORMATS = {
-        "currency": "#,##0.00",
+        "currency": "#,##0.00",                                    # จำนวนเงินบวก
+        "currency_negative": "#,##0.00;[Red]-#,##0.00",           # จัดการค่าติดลบ
+        "currency_parentheses": "#,##0.00;[Red](#,##0.00)",       # ค่าติดลบในวงเล็บ
         "currency_no_decimal": "#,##0",
-        "percentage": "0.00%",
+        "percentage": "0.00%",                                     # เปอร์เซ็นต์บวก
+        "percentage_negative": "0.00%;[Red]-0.00%",               # เปอร์เซ็นต์ติดลบ
         "percentage_one_decimal": "0.0%",
     }
 
@@ -132,7 +140,8 @@ class UniverConverter:
         self,
         number_format: str,
         bg_color: Optional[str] = None,
-        bold: bool = False
+        bold: bool = False,
+        font_color: Optional[str] = None
     ) -> Dict[str, Any]:
         """สร้าง style สำหรับตัวเลข"""
         style = {
@@ -142,6 +151,48 @@ class UniverConverter:
 
         if bg_color:
             style["bg"] = {"rgb": bg_color}
+
+        if font_color:
+            style["fc"] = {"rgb": font_color}
+
+        return style
+
+    def _create_number_style_smart(
+        self,
+        value: float,
+        number_format: str = None,
+        bg_color: Optional[str] = None,
+        bold: bool = False
+    ) -> Dict[str, Any]:
+        """
+        สร้าง style สำหรับตัวเลขที่จัดการค่าติดลบอัตโนมัติ
+
+        Args:
+            value: ค่าตัวเลข
+            number_format: Number format pattern (ถ้าไม่ระบุจะใช้ currency_negative)
+            bg_color: สีพื้นหลัง
+            bold: ตัวหนา
+
+        Returns:
+            Style object
+        """
+        # ถ้าไม่ระบุ format ให้ใช้ format ที่จัดการค่าติดลบ
+        if number_format is None:
+            number_format = self.NUMBER_FORMATS["currency_negative"]
+
+        style = {
+            "n": {"pattern": number_format},
+            "bl": 1 if bold else 0,
+        }
+
+        if bg_color:
+            style["bg"] = {"rgb": bg_color}
+
+        # ถ้าค่าติดลบ เพิ่มสีแดงให้กับตัวเลข (นอกเหนือจาก format pattern)
+        # Note: Univer จะใช้ format pattern ในการแสดงสีแดงอยู่แล้ว
+        # แต่เราเพิ่ม font color เพื่อให้แน่ใจ
+        if value < 0:
+            style["fc"] = {"rgb": self.COLORS["negative"]}
 
         return style
 
@@ -168,7 +219,7 @@ class UniverConverter:
             row=current_row,
             col=0,
             value="รายงานผลดำเนินงาน (Profit & Loss Statement)",
-            style=self._create_header_style(self.COLORS["header"], font_color="#FFFFFF")
+            style=self._create_header_style(self.COLORS["header"], font_color=self.COLORS["header_white"])
         ))
         current_row += 2
 
@@ -195,33 +246,35 @@ class UniverConverter:
         ]
 
         for label, key in revenue_items:
+            value = revenue.get(key, 0)
             cells.append(self._create_cell(
                 row=current_row,
                 col=0,
-                value=f"  {label}",
+                value=f"    {label}",  # เพิ่ม indentation
             ))
             cells.append(self._create_cell(
                 row=current_row,
                 col=1,
-                value=revenue.get(key, 0),
-                style=self._create_number_style(self.NUMBER_FORMATS["currency"])
+                value=value,
+                style=self._create_number_style_smart(value)  # ใช้ smart style
             ))
             current_row += 1
 
         # รายได้รวม
+        total_revenue = revenue.get('Total', 0)
         cells.append(self._create_cell(
             row=current_row,
             col=0,
             value="รายได้รวม",
-            style=self._create_header_style(self.COLORS["revenue"], bold=True)
+            style=self._create_header_style(self.COLORS["revenue_total"], bold=True)
         ))
         cells.append(self._create_cell(
             row=current_row,
             col=1,
-            value=revenue.get('Total', 0),
-            style=self._create_number_style(
-                self.NUMBER_FORMATS["currency"],
-                bg_color=self.COLORS["revenue"],
+            value=total_revenue,
+            style=self._create_number_style_smart(
+                total_revenue,
+                bg_color=self.COLORS["revenue_total"],
                 bold=True
             )
         ))
@@ -255,33 +308,35 @@ class UniverConverter:
         ]
 
         for item in cost_items:
+            value = cost_of_service.get(item, 0)
             cells.append(self._create_cell(
                 row=current_row,
                 col=0,
-                value=f"  {item}",
+                value=f"    {item}",  # เพิ่ม indentation
             ))
             cells.append(self._create_cell(
                 row=current_row,
                 col=1,
-                value=cost_of_service.get(item, 0),
-                style=self._create_number_style(self.NUMBER_FORMATS["currency"])
+                value=value,
+                style=self._create_number_style_smart(value)  # ใช้ smart style
             ))
             current_row += 1
 
         # ต้นทุนรวม
+        total_cost = cost_of_service.get('Total', 0)
         cells.append(self._create_cell(
             row=current_row,
             col=0,
             value="ต้นทุนบริการและต้นทุนขายรวม",
-            style=self._create_header_style(self.COLORS["cost_header"], bold=True)
+            style=self._create_header_style(self.COLORS["cost_total"], bold=True)
         ))
         cells.append(self._create_cell(
             row=current_row,
             col=1,
-            value=cost_of_service.get('Total', 0),
-            style=self._create_number_style(
-                self.NUMBER_FORMATS["currency"],
-                bg_color=self.COLORS["cost_header"],
+            value=total_cost,
+            style=self._create_number_style_smart(
+                total_cost,
+                bg_color=self.COLORS["cost_total"],
                 bold=True
             )
         ))
@@ -299,8 +354,8 @@ class UniverConverter:
             row=current_row,
             col=1,
             value=gross_profit,
-            style=self._create_number_style(
-                self.NUMBER_FORMATS["currency"],
+            style=self._create_number_style_smart(
+                gross_profit,
                 bg_color=self.COLORS["gross_profit"],
                 bold=True
             )
@@ -319,8 +374,8 @@ class UniverConverter:
             row=current_row,
             col=1,
             value=ebit,
-            style=self._create_number_style(
-                self.NUMBER_FORMATS["currency"],
+            style=self._create_number_style_smart(
+                ebit,
                 bg_color=self.COLORS["ebit"],
                 bold=True
             )
@@ -340,8 +395,8 @@ class UniverConverter:
                 row=current_row,
                 col=1,
                 value=ebitda,
-                style=self._create_number_style(
-                    self.NUMBER_FORMATS["currency"],
+                style=self._create_number_style_smart(
+                    ebitda,
                     bg_color=self.COLORS["ebitda"],
                     bold=True
                 )
