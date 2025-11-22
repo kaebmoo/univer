@@ -5,6 +5,11 @@ Univer Converter Service
 
 from typing import Dict, List, Any, Optional
 import json
+import logging
+
+from app.models.report import UniverWorkbook, UniverSheet, UniverCell
+
+logger = logging.getLogger(__name__)
 
 
 class UniverConverter:
@@ -405,46 +410,5 @@ class UniverConverter:
         return styles
 
 
-# Example usage
-if __name__ == "__main__":
-    # Mock report data
-    report_data = {
-        'metadata': {},
-        'data': {
-            'revenue': {
-                'Infrastructure': 100000,
-                'Fixed Line & Broadband': 500000,
-                'Mobile': 800000,
-                'International Circuit': 50000,
-                'Digital': 150000,
-                'ICT Solution': 200000,
-                'Non-Telecom Service': 30000,
-                'Sale of Goods': 20000,
-                'Total': 1850000
-            },
-            'cost_of_service': {
-                'ค่าใช้จ่ายตอบแทนแรงงาน': 300000,
-                'ค่าสวัสดิการ': 50000,
-                'Total': 800000
-            },
-            'metrics': {
-                'gross_profit': 1050000,
-                'ebit': 500000,
-                'ebitda': 650000
-            }
-        }
-    }
-
-    # Create converter
-    converter = UniverConverter()
-
-    # Convert to snapshot
-    snapshot = converter.convert_to_snapshot(report_data)
-
-    # Save to JSON
-    with open('sample_snapshot.json', 'w', encoding='utf-8') as f:
-        json.dump(snapshot, f, ensure_ascii=False, indent=2)
-
-    print("Snapshot created successfully!")
-    print(f"Total cells: {len(snapshot['sheets']['sheet-01']['cellData'])}")
-    print(f"Total styles: {len(snapshot['styles'])}")
+# Create global univer converter instance
+univer_converter = UniverConverter()

@@ -54,14 +54,23 @@ async def root():
     """Root endpoint"""
     return {
         "message": "Welcome to Univer Report System API",
+        "version": "0.1.0",
         "docs": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
+        "endpoints": {
+            "auth": "/auth",
+            "report": "/report",
+            "health": "/health"
+        }
     }
 
-# Import routers (will be added later)
-# from app.routers import auth, report
-# app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-# app.include_router(report.router, prefix="/api/report", tags=["Report"])
+# Import and include routers
+from app.routers import auth, report
+
+app.include_router(auth.router)
+app.include_router(report.router)
+
+logger.info("Routers loaded: /auth, /report")
 
 if __name__ == "__main__":
     import uvicorn

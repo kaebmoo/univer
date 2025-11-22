@@ -4,23 +4,22 @@ Report Calculator Service
 """
 
 import pandas as pd
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+
+from app.services.data_loader import data_loader
+from app.models.report import ReportFilter, ReportMetrics, ReportData, ReportRow
+
+logger = logging.getLogger(__name__)
 
 
 class ReportCalculator:
     """Class สำหรับคำนวณรายงานผลดำเนินงาน"""
 
-    def __init__(self, df_main: pd.DataFrame, df_other: pd.DataFrame):
-        """
-        Initialize calculator with data
-
-        Args:
-            df_main: DataFrame จาก profit_loss.csv
-            df_other: DataFrame จาก other_income_expense.csv
-        """
-        self.df_main = df_main
-        self.df_other = df_other
+    def __init__(self):
+        """Initialize calculator - data loaded from data_loader"""
+        self.data_loader = data_loader
 
     def calculate_revenue(
         self,
@@ -39,36 +38,26 @@ class ReportCalculator:
         Returns:
             Dict with business group as key and revenue as value
         """
-        df = self.df_main.copy()
+        # Load and filter data
+        df = self.data_loader.filter_data(year, months, business_groups)
 
-        # Filter by year and months
-        df = df[(df['YEAR'] == year) & (df['MONTH'].isin(months))]
-
-        # Filter by business groups if specified
-        if business_groups:
-            df = df[df['BUSINESS_GROUP'].isin(business_groups)]
+        # Filter only revenue rows
+        df = df[df['REVENUE_VALUE'] > 0]
 
         # Group by business group and sum revenue
         revenue_by_group = df.groupby('BUSINESS_GROUP')['REVENUE_VALUE'].sum()
 
-        # กลุ่มธุรกิจทั้งหมด (ตามลำดับในรายงาน)
-        all_groups = [
-            'Infrastructure',
-            'Fixed Line & Broadband',
-            'Mobile',
-            'International Circuit',
-            'Digital',
-            'ICT Solution',
-            'Non-Telecom Service',
-            'Sale of Goods'
-        ]
+        # Get available business groups from data
+        available_groups = sorted(revenue_by_group.index.tolist())
 
         result = {}
-        for group in all_groups:
+        for group in available_groups:
             result[group] = revenue_by_group.get(group, 0.0)
 
         # รายได้รวม
         result['Total'] = sum(result.values())
+
+        logger.info(f"Calculated revenue for {len(available_groups)} groups: Total = {result['Total']:,.2f}")
 
         return result
 
@@ -94,49 +83,24 @@ class ReportCalculator:
         Returns:
             Dict with account category as key and amount as value
         """
-        df = self.df_main.copy()
+        # Load and filter data
+        df = self.data_loader.filter_data(year, months, business_groups)
 
-        # Filter
-        df = df[
-            (df['YEAR'] == year) &
-            (df['MONTH'].isin(months)) &
-            (df['TYPE'] == cost_type)
-        ]
-
-        if business_groups:
-            df = df[df['BUSINESS_GROUP'].isin(business_groups)]
-
-        # หมวดบัญชีทั้งหมด
-        account_categories = {
-            'C01': 'ค่าใช้จ่ายตอบแทนแรงงาน',
-            'C02': 'ค่าสวัสดิการ',
-            'C03': 'ค่าใช้จ่ายพัฒนาและฝึกอบรมบุคลากร',
-            'C04': 'ค่าซ่อมแซมและบำรุงรักษาและวัสดุใช้ไป',
-            'C05': 'ค่าสาธารณูปโภค',
-            'C06': 'ค่าใช้จ่ายเกี่ยวกับการกำกับดูแลของ กสทช.',
-            'C07': 'ค่าส่วนแบ่งบริการโทรคมนาคม',
-            'C08': 'ค่าใช้จ่ายบริการโทรคมนาคม',
-            'C09': 'ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์',
-            'C10': 'ค่าตัดจำหน่ายสิทธิการใช้ตามสัญญาเช่า',
-            'C11': 'ค่าเช่าและค่าใช้สินทรัพย์',
-            'C12': 'ต้นทุนขาย',
-            'C13': 'ค่าใช้จ่ายบริการอื่น',
-            'C14': 'ค่าใช้จ่ายดำเนินงานอื่น',
-            'C15': 'ต้นทุนทางการเงิน-ด้านการดำเนินงาน',
-        }
+        # Filter by cost type
+        df = df[df['TYPE'] == cost_type]
 
         # Group by account category
         cost_by_category = df.groupby('หมวดบัญชี')['EXPENSE_VALUE'].sum()
 
+        # Get categories from actual data
         result = {}
-        for code, name in account_categories.items():
-            # Extract code from หมวดบัญชี column (format: "C01 ค่าใช้จ่าย...")
-            amount = cost_by_category[
-                cost_by_category.index.str.startswith(code)
-            ].sum()
-            result[name] = amount
+        for category in cost_by_category.index:
+            result[category] = cost_by_category[category]
 
+        # Total
         result['Total'] = sum(result.values())
+
+        logger.info(f"Calculated {cost_type}: {len(result)-1} categories, Total = {result['Total']:,.2f}")
 
         return result
 
@@ -144,7 +108,8 @@ class ReportCalculator:
         self,
         year: int,
         month: int,
-        metric_name: str
+        metric_name: str,
+        business_groups: Optional[List[str]] = None
     ) -> float:
         """
         คำนวณยอดสะสม (Year-to-Date)
@@ -153,6 +118,7 @@ class ReportCalculator:
             year: ปี
             month: เดือน
             metric_name: ชื่อตัวชี้วัด (revenue, cost, etc.)
+            business_groups: รายการกลุ่มธุรกิจ
 
         Returns:
             ยอดสะสมตั้งแต่ต้นปีถึงเดือนที่ระบุ
@@ -161,20 +127,21 @@ class ReportCalculator:
         months = list(range(1, month + 1))
 
         if metric_name == 'revenue':
-            revenue = self.calculate_revenue(year, months)
+            revenue = self.calculate_revenue(year, months, business_groups)
             return revenue['Total']
         elif metric_name.startswith('cost_'):
             cost_type = metric_name.replace('cost_', '')
-            cost = self.calculate_cost_by_type(year, months, cost_type)
+            cost = self.calculate_cost_by_type(year, months, cost_type, business_groups)
             return cost['Total']
         else:
-            # สำหรับ other income/expense ใช้ค่าจาก df_other โดยตรง
-            df = self.df_other.copy()
+            # สำหรับ other income/expense ใช้ค่าจาก data loader
+            df = self.data_loader.load_other_income_expense_data()
             df = df[(df['YEAR'] == year) & (df['MONTH'] == month)]
 
             column_map = {
                 'other_income': 'other_income_ytd',
                 'other_expense': 'other_expense_ytd',
+                'financial_income': 'financial_income_ytd',
                 'financial_cost': 'financial_cost_ytd',
                 'corporate_tax': 'corporate_tax_ytd',
             }
@@ -382,23 +349,5 @@ class ReportCalculator:
         return report
 
 
-# Example usage
-if __name__ == "__main__":
-    # Load data
-    df_main = pd.read_csv('data/profit_loss.csv')
-    df_other = pd.read_csv('data/other_income_expense.csv')
-
-    # Create calculator
-    calculator = ReportCalculator(df_main, df_other)
-
-    # Generate report for January 2025
-    report = calculator.generate_full_report(
-        year=2025,
-        months=[1],
-        view_type='monthly',
-        show_common_size=True
-    )
-
-    print("Report generated successfully!")
-    print(f"Total Revenue: {report['data']['revenue']['Total']:,.2f}")
-    print(f"EBIT: {report['data']['metrics']['ebit']:,.2f}")
+# Create global report calculator instance
+report_calculator = ReportCalculator()
