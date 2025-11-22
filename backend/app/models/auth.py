@@ -66,7 +66,8 @@ class UserInfo(BaseModel):
 class OTPSession(BaseModel):
     """OTP session stored in memory"""
     email: str = Field(..., description="User email")
-    otp_code: str = Field(..., description="Generated OTP code")
+    secret: str = Field(..., description="TOTP secret key")
+    otp_code: str = Field(..., description="Generated OTP code (for logging/display)")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
     attempts: int = Field(default=0, description="Number of verification attempts")
     is_verified: bool = Field(default=False, description="Whether OTP is verified")

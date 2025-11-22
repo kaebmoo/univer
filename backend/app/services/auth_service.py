@@ -17,7 +17,7 @@ from app.models.auth import (
     OTPSession,
     OTPResponse
 )
-from app.utils.otp import generate_otp
+from app.utils.otp import generate_secret, generate_totp, verify_totp, get_remaining_time
 from app.utils.email import send_otp_email
 
 logger = logging.getLogger(__name__)
@@ -52,8 +52,9 @@ class AuthService:
                 detail=f"Email domain not allowed. Allowed domains: {', '.join(settings.allowed_domains_list)}"
             )
 
-        # Generate OTP code
-        otp_code = generate_otp(settings.otp_length)
+        # Generate TOTP secret and code
+        secret = generate_secret()
+        otp_code, totp = generate_totp(secret, interval=settings.otp_expiration)
 
         # Send OTP via email
         logger.info(f"Sending OTP to {email}")
@@ -66,9 +67,10 @@ class AuthService:
                 detail="Failed to send OTP email. Please try again later."
             )
 
-        # Store OTP session
+        # Store OTP session with TOTP secret
         self.otp_sessions[email] = OTPSession(
             email=email,
+            secret=secret,
             otp_code=otp_code,
             created_at=datetime.utcnow(),
             attempts=0,
@@ -127,8 +129,15 @@ class AuthService:
         # Increment attempts
         session.increment_attempts()
 
-        # Verify OTP code
-        if session.otp_code != otp_code:
+        # Verify OTP code using TOTP
+        is_valid = verify_totp(
+            secret=session.secret,
+            otp_code=otp_code,
+            interval=settings.otp_expiration,
+            valid_window=1  # Accept codes from previous, current, and next interval
+        )
+
+        if not is_valid:
             logger.warning(f"Invalid OTP for {email} (attempt {session.attempts}/{settings.otp_max_attempts})")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

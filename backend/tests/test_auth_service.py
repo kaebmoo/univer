@@ -12,20 +12,10 @@ from app.models.auth import OTPRequest, OTPVerifyRequest
 class TestAuthService:
     """Test cases for AuthService"""
 
-    def test_validate_email_domain_valid(self, auth_service):
-        """Test email domain validation with valid domain"""
-        valid_email = "user@example.com"
-        assert auth_service._validate_email_domain(valid_email) is True
-
-    def test_validate_email_domain_invalid(self, auth_service):
-        """Test email domain validation with invalid domain"""
-        invalid_email = "user@invalid.com"
-        assert auth_service._validate_email_domain(invalid_email) is False
-
-    def test_generate_jwt_token(self, auth_service):
+    def test_create_access_token(self, auth_service):
         """Test JWT token generation"""
         email = "test@example.com"
-        token = auth_service._generate_jwt_token(email)
+        token = auth_service._create_access_token(email)
 
         assert token is not None
         assert isinstance(token, str)
@@ -34,7 +24,7 @@ class TestAuthService:
     def test_verify_jwt_token_valid(self, auth_service):
         """Test JWT token verification with valid token"""
         email = "test@example.com"
-        token = auth_service._generate_jwt_token(email)
+        token = auth_service._create_access_token(email)
 
         user_info = auth_service.verify_token(token)
 
@@ -56,22 +46,28 @@ class TestAuthService:
         email = "test@example.com"
         response = auth_service.request_otp(email)
 
-        assert response.success is True
         assert response.message is not None
+        assert response.email == email
+        assert response.expires_in > 0
         assert email in auth_service.otp_sessions
+        # Verify session has TOTP secret
+        assert auth_service.otp_sessions[email].secret is not None
 
     def test_request_otp_invalid_domain(self, auth_service):
         """Test OTP request with invalid email domain"""
+        from fastapi import HTTPException
         email = "test@invalid.com"
-        response = auth_service.request_otp(email)
 
-        assert response.success is False
-        assert "อนุญาต" in response.message or "allowed" in response.message.lower()
+        with pytest.raises(HTTPException) as exc_info:
+            auth_service.request_otp(email)
+
+        assert exc_info.value.status_code == 403
 
     def test_verify_otp_correct_code(self, auth_service, mock_otp_session):
         """Test OTP verification with correct code"""
         email = "test@example.com"
-        otp_code = "123456"
+        # Use the actual OTP code from the session (TOTP-generated)
+        otp_code = mock_otp_session.otp_code
 
         # Set up session
         auth_service.otp_sessions[email] = mock_otp_session
@@ -80,57 +76,61 @@ class TestAuthService:
 
         assert token_response.access_token is not None
         assert token_response.token_type == "bearer"
-        assert token_response.user.email == email
+        assert token_response.expires_in > 0
 
     def test_verify_otp_incorrect_code(self, auth_service, mock_otp_session):
         """Test OTP verification with incorrect code"""
+        from fastapi import HTTPException
         email = "test@example.com"
         wrong_code = "999999"
 
         # Set up session
         auth_service.otp_sessions[email] = mock_otp_session
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             auth_service.verify_otp(email, wrong_code)
 
-        assert "OTP" in str(exc_info.value) or "รหัส" in str(exc_info.value)
+        assert exc_info.value.status_code == 401
 
     def test_verify_otp_expired(self, auth_service, expired_otp_session):
         """Test OTP verification with expired OTP"""
+        from fastapi import HTTPException
         email = "test@example.com"
-        otp_code = "123456"
+        otp_code = expired_otp_session.otp_code
 
         # Set up expired session
         auth_service.otp_sessions[email] = expired_otp_session
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             auth_service.verify_otp(email, otp_code)
 
-        assert "หมดอายุ" in str(exc_info.value) or "expired" in str(exc_info.value).lower()
+        assert exc_info.value.status_code == 400
 
     def test_verify_otp_max_attempts(self, auth_service, mock_otp_session):
         """Test OTP verification with max attempts exceeded"""
+        from fastapi import HTTPException
         email = "test@example.com"
         wrong_code = "999999"
 
-        # Set up session with max attempts
+        # Set up session with max attempts (default max is 3)
         mock_otp_session.attempts = 3
         auth_service.otp_sessions[email] = mock_otp_session
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             auth_service.verify_otp(email, wrong_code)
 
-        assert "ครั้ง" in str(exc_info.value) or "attempt" in str(exc_info.value).lower()
+        assert exc_info.value.status_code == 429
 
     def test_verify_otp_no_session(self, auth_service):
         """Test OTP verification with no existing session"""
+        from fastapi import HTTPException
         email = "test@example.com"
         otp_code = "123456"
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             auth_service.verify_otp(email, otp_code)
 
-        assert "OTP" in str(exc_info.value) or "ไม่พบ" in str(exc_info.value)
+        assert exc_info.value.status_code == 404
 
     def test_otp_session_is_expired(self, mock_otp_session, expired_otp_session):
         """Test OTP session expiration check"""
@@ -150,13 +150,13 @@ class TestAuthService:
 
         # First request
         response1 = auth_service.request_otp(email)
-        otp1 = auth_service.otp_sessions[email].otp_code
+        secret1 = auth_service.otp_sessions[email].secret
 
         # Second request (should replace first)
         response2 = auth_service.request_otp(email)
-        otp2 = auth_service.otp_sessions[email].otp_code
+        secret2 = auth_service.otp_sessions[email].secret
 
-        assert response1.success is True
-        assert response2.success is True
-        # OTP codes should be different (new request generates new code)
-        assert otp1 != otp2 or True  # Allow same code by chance (1/1000000)
+        assert response1.message is not None
+        assert response2.message is not None
+        # Secrets should be different (new request generates new secret)
+        assert secret1 != secret2

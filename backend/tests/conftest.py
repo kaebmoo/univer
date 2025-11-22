@@ -44,9 +44,16 @@ def univer_converter():
 def mock_otp_session():
     """Create a mock OTP session"""
     from app.models.auth import OTPSession
+    from app.utils.otp import generate_secret, generate_totp
+
+    # Generate a real TOTP secret and code for testing
+    secret = generate_secret()
+    otp_code, _ = generate_totp(secret, interval=300)
+
     return OTPSession(
         email="test@example.com",
-        otp_code="123456",
+        secret=secret,
+        otp_code=otp_code,
         created_at=datetime.utcnow(),
         attempts=0,
         is_verified=False
@@ -57,9 +64,16 @@ def mock_otp_session():
 def expired_otp_session():
     """Create an expired OTP session"""
     from app.models.auth import OTPSession
+    from app.utils.otp import generate_secret, generate_totp
+
+    # Generate a real TOTP secret and code for testing
+    secret = generate_secret()
+    otp_code, _ = generate_totp(secret, interval=300)
+
     return OTPSession(
         email="test@example.com",
-        otp_code="123456",
+        secret=secret,
+        otp_code=otp_code,
         created_at=datetime.utcnow() - timedelta(minutes=10),
         attempts=0,
         is_verified=False
