@@ -52,6 +52,9 @@ const AppContent: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            height: 'auto',
+            minHeight: 64,
+            lineHeight: 'normal',
           }}
         >
           <Space>
@@ -60,14 +63,17 @@ const AppContent: React.FC = () => {
             </Title>
           </Space>
 
-          <Space>
+          <Space align="center" size="middle">
             <Avatar icon={<UserOutlined />} />
-            <div>
-              <Text strong>{user?.email}</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {user?.domain}
-              </Text>
+            <div style={{ lineHeight: 1.4, minWidth: 150 }}>
+              <div>
+                <Text strong style={{ display: 'block' }}>{user?.email}</Text>
+              </div>
+              <div>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                  {user?.domain}
+                </Text>
+              </div>
             </div>
             <Button
               icon={<LogoutOutlined />}
