@@ -16,6 +16,7 @@ from app.routers.auth import get_current_user
 from app.services.data_loader import data_loader
 from app.services.report_calculator import report_calculator
 from app.services.univer_converter import univer_converter
+from app.services.univer_converter_crosstab import univer_converter_crosstab
 
 logger = logging.getLogger(__name__)
 
@@ -155,19 +156,11 @@ async def generate_univer_snapshot(
     )
 
     try:
-        # Generate report data
-        report = report_calculator.generate_full_report(
+        # Use new crosstab converter instead of old converter
+        snapshot = univer_converter_crosstab.convert_to_snapshot(
             year=filter.year,
             months=filter.months,
             business_groups=filter.business_groups,
-            view_type='monthly',
-            display_type='both',
-            show_common_size=True
-        )
-
-        # Convert to Univer snapshot
-        snapshot = univer_converter.convert_to_snapshot(
-            report_data=report,
             workbook_name=f"รายงานผลดำเนินงาน {filter.year}"
         )
 
