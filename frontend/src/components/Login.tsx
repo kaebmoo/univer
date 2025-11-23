@@ -19,13 +19,20 @@ export const Login: React.FC = () => {
   const [otpForm] = Form.useForm();
 
   const handleRequestOTP = async (values: { email: string }) => {
+    console.log('🔵 handleRequestOTP called with email:', values.email);
     clearError();
     setEmail(values.email);
 
     try {
+      console.log('🔵 Calling requestOTP...');
       const response = await requestOTP({ email: values.email });
+      console.log('🟢 Response received:', response);
+      console.log('🟢 expires_in:', response.expires_in);
+
       setOtpExpiry(response.expires_in);
+      console.log('🟢 About to set step to otp');
       setStep('otp');
+      console.log('🟢 Step set to:', 'otp');
 
       // Start countdown timer
       const timer = setInterval(() => {
@@ -38,6 +45,7 @@ export const Login: React.FC = () => {
         });
       }, 1000);
     } catch (err) {
+      console.error('🔴 Error in handleRequestOTP:', err);
       // Error is handled by context
     }
   };
