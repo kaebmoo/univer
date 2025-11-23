@@ -17,6 +17,13 @@ const { Title, Text } = Typography;
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
 
+  // Don't show loading screen during login flow
+  // Let Login component handle its own loading state
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  // Only show loading screen for authenticated operations
   if (isLoading) {
     return (
       <div
@@ -32,10 +39,6 @@ const AppContent: React.FC = () => {
         </Space>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <Login />;
   }
 
   return (

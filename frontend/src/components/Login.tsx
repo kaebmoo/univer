@@ -18,6 +18,14 @@ export const Login: React.FC = () => {
   const [emailForm] = Form.useForm();
   const [otpForm] = Form.useForm();
 
+  // Debug: Track component mount/unmount
+  React.useEffect(() => {
+    console.log('🟡 Login component MOUNTED');
+    return () => {
+      console.log('🔴 Login component UNMOUNTED');
+    };
+  }, []);
+
   // Debug: Watch step changes
   React.useEffect(() => {
     console.log('🔔 Step state changed to:', step);
