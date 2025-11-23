@@ -5,16 +5,23 @@
 import React, { useEffect, useRef } from 'react';
 import { Card, Empty, Spin, Alert, Button, Space, message } from 'antd';
 import { FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
-import { createUniver } from '@univerjs/presets';
-import { UniverSheetsPreset } from '@univerjs/preset-sheets-core';
-import '@univerjs/presets/lib/styles/preset-sheets-core.css';
+import { Univer, UniverInstanceType, LocaleType, Tools } from '@univerjs/core';
+import { defaultTheme } from '@univerjs/design';
+import { UniverDocsPlugin } from '@univerjs/docs';
+import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
+import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
+import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
+import { UniverSheetsPlugin } from '@univerjs/sheets';
+import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
+import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
+import { UniverUIPlugin } from '@univerjs/ui';
 
 import { useReport } from '../contexts/ReportContext';
 
 export const ReportViewer: React.FC = () => {
   const { univerSnapshot, isLoading, error, currentFilter, exportReport } = useReport();
   const containerRef = useRef<HTMLDivElement>(null);
-  const univerRef = useRef<any>(null);
+  const univerRef = useRef<Univer | null>(null);
 
   const handleExport = async () => {
     if (!currentFilter) {
@@ -39,20 +46,37 @@ export const ReportViewer: React.FC = () => {
       univerRef.current = null;
     }
 
-    // Create Univer instance using preset
-    const { univerAPI } = createUniver({
-      locale: 'en-US',
-      presets: [
-        UniverSheetsPreset({
-          container: containerRef.current,
-        }),
-      ],
+    // Create Univer instance with proper locale initialization
+    const univer = new Univer({
+      theme: defaultTheme,
+      locale: LocaleType.EN_US,
+      locales: {
+        [LocaleType.EN_US]: {},
+      },
     });
 
-    // Create workbook from snapshot
-    univerAPI.createUniverSheet(univerSnapshot);
+    // Register core plugins in correct order
+    univer.registerPlugin(UniverRenderEnginePlugin);
+    univer.registerPlugin(UniverUIPlugin, {
+      container: containerRef.current,
+    });
 
-    univerRef.current = univerAPI;
+    // Register Docs plugins
+    univer.registerPlugin(UniverDocsPlugin);
+    univer.registerPlugin(UniverDocsUIPlugin);
+
+    // Register Sheets plugins
+    univer.registerPlugin(UniverSheetsPlugin);
+    univer.registerPlugin(UniverSheetsUIPlugin);
+
+    // Register Formula plugins
+    univer.registerPlugin(UniverFormulaEnginePlugin);
+    univer.registerPlugin(UniverSheetsFormulaPlugin);
+
+    // Create workbook from snapshot
+    univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
+
+    univerRef.current = univer;
 
     // Cleanup on unmount
     return () => {
