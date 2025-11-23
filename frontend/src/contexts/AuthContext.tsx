@@ -60,7 +60,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      await apiClient.requestOTP(data);
+      const response = await apiClient.requestOTP(data);
+      return response;
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.detail || 'Failed to request OTP. Please try again.';
