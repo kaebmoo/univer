@@ -24,6 +24,22 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
     Returns:
         True if email sent successfully, False otherwise
     """
+    # Development mode: Just log OTP instead of sending email
+    if settings.app_env == "development" and (
+        settings.smtp_username == "your-email@gmail.com"
+        or not settings.smtp_username
+    ):
+        logger.info("=" * 60)
+        logger.info("📧 DEVELOPMENT MODE - OTP EMAIL")
+        logger.info(f"To: {to_email}")
+        logger.info(f"OTP Code: {otp_code}")
+        logger.info(f"Expires in: {settings.otp_expiration // 60} minutes")
+        logger.info("=" * 60)
+        print(f"\n{'='*60}")
+        print(f"📧 OTP for {to_email}: {otp_code}")
+        print(f"{'='*60}\n")
+        return True
+
     try:
         # Create message
         msg = MIMEMultipart("alternative")
