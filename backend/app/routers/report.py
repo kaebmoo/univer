@@ -285,14 +285,14 @@ async def export_to_excel(
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             # Create P&L Report crosstab
 
-            # Revenue crosstab
-            df_revenue = df[df['REVENUE_VALUE'] > 0].copy()
+            # Revenue crosstab (use TYPE='รายได้' and AMOUNT column)
+            df_revenue = df[df['TYPE'] == 'รายได้'].copy()
             if not df_revenue.empty:
                 revenue_pivot = pd.pivot_table(
                     df_revenue,
                     index=['TYPE', 'หมวดบัญชี'],
                     columns='SERVICE_GROUP',
-                    values='REVENUE_VALUE',
+                    values='AMOUNT',
                     aggfunc='sum',
                     fill_value=0,
                     margins=True,
@@ -300,14 +300,14 @@ async def export_to_excel(
                 )
                 revenue_pivot.to_excel(writer, sheet_name='รายได้', merge_cells=False)
 
-            # Cost of Service crosstab
-            df_cost = df[df['TYPE'] == '02 ต้นทุนบริการ'].copy()
+            # Cost of Service crosstab (use AMOUNT column)
+            df_cost = df[df['TYPE'] == 'ต้นทุนบริการ'].copy()
             if not df_cost.empty:
                 cost_pivot = pd.pivot_table(
                     df_cost,
                     index=['TYPE', 'หมวดบัญชี'],
                     columns='SERVICE_GROUP',
-                    values='EXPENSE_VALUE',
+                    values='AMOUNT',
                     aggfunc='sum',
                     fill_value=0,
                     margins=True,
@@ -315,14 +315,14 @@ async def export_to_excel(
                 )
                 cost_pivot.to_excel(writer, sheet_name='ต้นทุนบริการ', merge_cells=False)
 
-            # Selling Expense crosstab
-            df_selling = df[df['TYPE'] == '03 ค่าใช้จ่ายขายและการตลาด'].copy()
+            # Selling Expense crosstab (use AMOUNT column)
+            df_selling = df[df['TYPE'] == 'ค่าใช้จ่ายขายและการตลาด'].copy()
             if not df_selling.empty:
                 selling_pivot = pd.pivot_table(
                     df_selling,
                     index=['TYPE', 'หมวดบัญชี'],
                     columns='SERVICE_GROUP',
-                    values='EXPENSE_VALUE',
+                    values='AMOUNT',
                     aggfunc='sum',
                     fill_value=0,
                     margins=True,
@@ -330,14 +330,14 @@ async def export_to_excel(
                 )
                 selling_pivot.to_excel(writer, sheet_name='ค่าใช้จ่ายขาย', merge_cells=False)
 
-            # Admin Expense crosstab
-            df_admin = df[df['TYPE'] == '04 ค่าใช้จ่ายสนับสนุน'].copy()
+            # Admin Expense crosstab (use AMOUNT column)
+            df_admin = df[df['TYPE'] == 'ค่าใช้จ่ายสนับสนุน'].copy()
             if not df_admin.empty:
                 admin_pivot = pd.pivot_table(
                     df_admin,
                     index=['TYPE', 'หมวดบัญชี'],
                     columns='SERVICE_GROUP',
-                    values='EXPENSE_VALUE',
+                    values='AMOUNT',
                     aggfunc='sum',
                     fill_value=0,
                     margins=True,
@@ -345,12 +345,12 @@ async def export_to_excel(
                 )
                 admin_pivot.to_excel(writer, sheet_name='ค่าใช้จ่ายสนับสนุน', merge_cells=False)
 
-            # Complete P&L crosstab (all types combined)
+            # Complete P&L crosstab (all types combined, use AMOUNT column)
             pl_pivot = pd.pivot_table(
                 df,
                 index=['TYPE', 'หมวดบัญชี'],
                 columns='SERVICE_GROUP',
-                values=['REVENUE_VALUE', 'EXPENSE_VALUE'],
+                values='AMOUNT',
                 aggfunc='sum',
                 fill_value=0,
                 margins=True,

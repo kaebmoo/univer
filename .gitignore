@@ -180,3 +180,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 docs/Report_NT.pdf
+backend/data/PROFIT_LOSS_DATA_2025.csv

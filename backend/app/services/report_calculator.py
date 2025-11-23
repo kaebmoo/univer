@@ -46,11 +46,11 @@ class ReportCalculator:
         # Load and filter data (cached by data_loader)
         df = self.data_loader.filter_data(year, months, business_groups)
 
-        # Filter only revenue rows (vectorized operation)
-        df = df[df['REVENUE_VALUE'] > 0]
+        # Filter only revenue rows by TYPE (vectorized operation)
+        df = df[df['TYPE'] == 'รายได้']
 
-        # Group by business group and sum revenue (optimized aggregation)
-        revenue_by_group = df.groupby('BUSINESS_GROUP', observed=True)['REVENUE_VALUE'].sum()
+        # Group by business group and sum revenue using AMOUNT column (optimized aggregation)
+        revenue_by_group = df.groupby('BUSINESS_GROUP', observed=True)['AMOUNT'].sum()
 
         # Convert to dict directly (more efficient than loop)
         result = revenue_by_group.to_dict()
@@ -76,9 +76,9 @@ class ReportCalculator:
             year: ปี
             months: รายการเดือน
             cost_type: ประเภทต้นทุน
-                - '02 ต้นทุนบริการ'
-                - '03 ค่าใช้จ่ายขายและการตลาด'
-                - '04 ค่าใช้จ่ายสนับสนุน'
+                - 'ต้นทุนบริการ'
+                - 'ค่าใช้จ่ายขายและการตลาด'
+                - 'ค่าใช้จ่ายสนับสนุน'
             business_groups: รายการกลุ่มธุรกิจ
 
         Returns:
@@ -90,8 +90,8 @@ class ReportCalculator:
         # Filter by cost type
         df = df[df['TYPE'] == cost_type]
 
-        # Group by account category
-        cost_by_category = df.groupby('หมวดบัญชี')['EXPENSE_VALUE'].sum()
+        # Group by account category using AMOUNT column
+        cost_by_category = df.groupby('หมวดบัญชี')['AMOUNT'].sum()
 
         # Get categories from actual data
         result = {}
@@ -312,17 +312,17 @@ class ReportCalculator:
 
         # คำนวณต้นทุนบริการ
         report['data']['cost_of_service'] = self.calculate_cost_by_type(
-            year, months, '02 ต้นทุนบริการ', business_groups
+            year, months, 'ต้นทุนบริการ', business_groups
         )
 
         # คำนวณค่าใช้จ่ายขาย
         report['data']['selling_expense'] = self.calculate_cost_by_type(
-            year, months, '03 ค่าใช้จ่ายขายและการตลาด', business_groups
+            year, months, 'ค่าใช้จ่ายขายและการตลาด', business_groups
         )
 
         # คำนวณค่าใช้จ่ายบริหาร
         report['data']['admin_expense'] = self.calculate_cost_by_type(
-            year, months, '04 ค่าใช้จ่ายสนับสนุน', business_groups
+            year, months, 'ค่าใช้จ่ายสนับสนุน', business_groups
         )
 
         # คำนวณ profit metrics
