@@ -2,7 +2,8 @@
  * API Client Service
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance, AxiosError } from 'axios';
 import type {
   OTPRequest,
   OTPVerifyRequest,
