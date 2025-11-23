@@ -5,7 +5,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Card, Empty, Spin, Alert, Button, Space, message } from 'antd';
 import { FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
-import { Univer } from '@univerjs/core';
+import { LocaleType, Univer, UniverInstanceType } from '@univerjs/core';
 import { defaultTheme } from '@univerjs/design';
 import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
@@ -49,30 +49,32 @@ export const ReportViewer: React.FC = () => {
     // Create new Univer instance
     const univer = new Univer({
       theme: defaultTheme,
-      locale: 'th-TH',
+      locale: LocaleType.EN_US,
     });
 
-    // Register plugins
+    // Register plugins in the correct order
+    // 1. Render engine first
     univer.registerPlugin(UniverRenderEnginePlugin);
-    univer.registerPlugin(UniverFormulaEnginePlugin);
+
+    // 2. UI plugin with container
     univer.registerPlugin(UniverUIPlugin, {
       container: containerRef.current,
-      header: true,
-      toolbar: true,
-      footer: true,
     });
 
-    // Sheets plugins
-    univer.registerPlugin(UniverSheetsPlugin);
-    univer.registerPlugin(UniverSheetsUIPlugin);
-    univer.registerPlugin(UniverSheetsFormulaPlugin);
-
-    // Docs plugins
+    // 3. Docs plugins (required for sheets)
     univer.registerPlugin(UniverDocsPlugin);
     univer.registerPlugin(UniverDocsUIPlugin);
 
+    // 4. Sheets plugins
+    univer.registerPlugin(UniverSheetsPlugin);
+    univer.registerPlugin(UniverSheetsUIPlugin);
+
+    // 5. Formula plugins
+    univer.registerPlugin(UniverFormulaEnginePlugin);
+    univer.registerPlugin(UniverSheetsFormulaPlugin);
+
     // Create workbook from snapshot
-    univer.createUnit('univer', univerSnapshot);
+    univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
 
     univerRef.current = univer;
 
@@ -139,7 +141,7 @@ export const ReportViewer: React.FC = () => {
           </Button>
         )
       }
-      bodyStyle={{ padding: 0 }}
+      styles={{ body: { padding: 0 } }}
     >
       <div
         ref={containerRef}
