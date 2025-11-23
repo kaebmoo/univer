@@ -6,12 +6,18 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { apiClient } from '../services/api';
 import type { UserInfo, OTPRequest, OTPVerifyRequest } from '../types';
 
+interface OTPResponse {
+  message: string;
+  email: string;
+  expires_in: number;
+}
+
 interface AuthContextType {
   user: UserInfo | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  requestOTP: (data: OTPRequest) => Promise<void>;
+  requestOTP: (data: OTPRequest) => Promise<OTPResponse>;
   verifyOTP: (data: OTPVerifyRequest) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
