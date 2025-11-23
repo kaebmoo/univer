@@ -18,6 +18,11 @@ export const Login: React.FC = () => {
   const [emailForm] = Form.useForm();
   const [otpForm] = Form.useForm();
 
+  // Debug: Watch step changes
+  React.useEffect(() => {
+    console.log('🔔 Step state changed to:', step);
+  }, [step]);
+
   const handleRequestOTP = async (values: { email: string }) => {
     console.log('🔵 handleRequestOTP called with email:', values.email);
     clearError();
@@ -76,6 +81,8 @@ export const Login: React.FC = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  console.log('🔄 Login component rendering, current step:', step);
 
   return (
     <div
