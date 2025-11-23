@@ -148,11 +148,20 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
         # Send email
         logger.info(f"Sending OTP email to {to_email}")
 
-        with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
-            server.starttls()
-            if settings.smtp_username and settings.smtp_password:
-                server.login(settings.smtp_username, settings.smtp_password)
-            server.send_message(msg)
+        # Use SSL for port 465, STARTTLS for other ports (587)
+        if settings.smtp_port == 465:
+            # Use SMTP_SSL for port 465
+            with smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port) as server:
+                if settings.smtp_username and settings.smtp_password:
+                    server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(msg)
+        else:
+            # Use STARTTLS for port 587
+            with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
+                server.starttls()
+                if settings.smtp_username and settings.smtp_password:
+                    server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(msg)
 
         logger.info(f"OTP email sent successfully to {to_email}")
         return True
@@ -198,11 +207,20 @@ def send_notification_email(
         # Send email
         logger.info(f"Sending notification email to {to_email}")
 
-        with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
-            server.starttls()
-            if settings.smtp_username and settings.smtp_password:
-                server.login(settings.smtp_username, settings.smtp_password)
-            server.send_message(msg)
+        # Use SSL for port 465, STARTTLS for other ports (587)
+        if settings.smtp_port == 465:
+            # Use SMTP_SSL for port 465
+            with smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port) as server:
+                if settings.smtp_username and settings.smtp_password:
+                    server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(msg)
+        else:
+            # Use STARTTLS for port 587
+            with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
+                server.starttls()
+                if settings.smtp_username and settings.smtp_password:
+                    server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(msg)
 
         logger.info(f"Notification email sent successfully to {to_email}")
         return True
