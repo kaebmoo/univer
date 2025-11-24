@@ -2,7 +2,7 @@
  * ReportViewer Component with Univer Integration
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, Empty, Spin, Alert, Button, Space, message } from 'antd';
 import { FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Univer, UniverInstanceType, LocaleType, Tools } from '@univerjs/core';
@@ -27,6 +27,7 @@ export const ReportViewer: React.FC = () => {
   const { univerSnapshot, isLoading, error, currentFilter, exportReport } = useReport();
   const containerRef = useRef<HTMLDivElement>(null);
   const univerRef = useRef<Univer | null>(null);
+  const [containerKey, setContainerKey] = useState(0);
 
   const getMonthRangeLabel = () => {
     if (!currentFilter || !currentFilter.months || currentFilter.months.length === 0) {
@@ -61,98 +62,82 @@ export const ReportViewer: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!univerSnapshot) return;
+
+    // Dispose previous instance before creating new one
+    if (univerRef.current) {
+      try {
+        univerRef.current.dispose();
+      } catch (error) {
+        console.error('Error disposing previous Univer instance:', error);
+      }
+      univerRef.current = null;
+    }
+
+    // Force React to create a new container element by incrementing key
+    setContainerKey(prev => prev + 1);
+  }, [univerSnapshot]);
+
+  useEffect(() => {
     if (!containerRef.current || !univerSnapshot) return;
 
-    let mounted = true;
-    let univerInstance: Univer | null = null;
+    // Use requestAnimationFrame to ensure DOM is ready after re-render
+    const frameId = requestAnimationFrame(() => {
+      if (!containerRef.current || !univerSnapshot) return;
 
-    // Clean up previous Univer instance
-    const cleanup = async () => {
+      try {
+        // Create new Univer instance
+        const univer = new Univer({
+          theme: defaultTheme,
+          locale: LocaleType.EN_US,
+          locales: {
+            [LocaleType.EN_US]: {},
+          },
+        });
+
+        // Register core plugins in correct order
+        univer.registerPlugin(UniverRenderEnginePlugin);
+        univer.registerPlugin(UniverUIPlugin, {
+          container: containerRef.current,
+        });
+
+        // Register Docs plugins
+        univer.registerPlugin(UniverDocsPlugin);
+        univer.registerPlugin(UniverDocsUIPlugin);
+
+        // Register Sheets plugins
+        univer.registerPlugin(UniverSheetsPlugin);
+        univer.registerPlugin(UniverSheetsUIPlugin);
+
+        // Register Formula plugins
+        univer.registerPlugin(UniverFormulaEnginePlugin);
+        univer.registerPlugin(UniverSheetsFormulaPlugin);
+
+        // Create workbook from snapshot
+        univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
+
+        // Store instance reference
+        univerRef.current = univer;
+      } catch (error) {
+        console.error('Error creating Univer instance:', error);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      cancelAnimationFrame(frameId);
+
+      // Dispose Univer instance on unmount
       if (univerRef.current) {
         try {
           univerRef.current.dispose();
-        } catch (error) {
-          console.error('Error disposing Univer instance:', error);
-        }
-        univerRef.current = null;
-      }
-
-      // Clear container thoroughly to prevent "removeChild" errors
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-        // Force layout recalculation
-        containerRef.current.offsetHeight;
-      }
-    };
-
-    // Perform cleanup and initialization
-    cleanup().then(() => {
-      // Longer delay to ensure complete cleanup
-      setTimeout(() => {
-        if (!mounted || !containerRef.current) return;
-
-        try {
-          // Create new Univer instance
-          const univer = new Univer({
-            theme: defaultTheme,
-            locale: LocaleType.EN_US,
-            locales: {
-              [LocaleType.EN_US]: {},
-            },
-          });
-
-          // Register core plugins in correct order
-          univer.registerPlugin(UniverRenderEnginePlugin);
-          univer.registerPlugin(UniverUIPlugin, {
-            container: containerRef.current,
-          });
-
-          // Register Docs plugins
-          univer.registerPlugin(UniverDocsPlugin);
-          univer.registerPlugin(UniverDocsUIPlugin);
-
-          // Register Sheets plugins
-          univer.registerPlugin(UniverSheetsPlugin);
-          univer.registerPlugin(UniverSheetsUIPlugin);
-
-          // Register Formula plugins
-          univer.registerPlugin(UniverFormulaEnginePlugin);
-          univer.registerPlugin(UniverSheetsFormulaPlugin);
-
-          // Create workbook from snapshot
-          univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
-
-          univerInstance = univer;
-          univerRef.current = univer;
-        } catch (error) {
-          console.error('Error creating Univer instance:', error);
-        }
-      }, 250); // Increased delay for better cleanup
-    });
-
-    // Cleanup on unmount or dependency change
-    return () => {
-      mounted = false;
-      if (univerInstance) {
-        try {
-          univerInstance.dispose();
         } catch (error) {
           console.error('Error disposing Univer on cleanup:', error);
         }
-      }
-      if (univerRef.current) {
-        try {
-          univerRef.current.dispose();
-        } catch (error) {
-          console.error('Error disposing univerRef on cleanup:', error);
-        }
         univerRef.current = null;
       }
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
     };
-  }, [univerSnapshot]);
+  }, [containerKey, univerSnapshot]);
 
   if (error) {
     return (
@@ -211,6 +196,7 @@ export const ReportViewer: React.FC = () => {
       styles={{ body: { padding: 0 } }}
     >
       <div
+        key={`univer-container-${containerKey}`}
         ref={containerRef}
         style={{
           width: '100%',
