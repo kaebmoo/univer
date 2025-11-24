@@ -1,0 +1,42 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/ui": "^4.0.13",
+    "jsdom": "^27.2.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@univerjs/core": "^0.12.2",
+    "@univerjs/design": "^0.12.2",
+    "@univerjs/docs": "^0.12.2",
+    "@univerjs/docs-ui": "^0.12.2",
+    "@univerjs/engine-formula": "^0.12.2",
+    "@univerjs/engine-render": "^0.12.2",
+    "@univerjs/preset-sheets-core": "^0.12.2",
+    "@univerjs/presets": "^0.12.2",
+    "@univerjs/sheets": "^0.12.2",
+    "@univerjs/sheets-formula": "^0.12.2",
+    "@univerjs/sheets-formula-ui": "^0.12.2",
+    "@univerjs/sheets-ui": "^0.12.2",
+    "@univerjs/ui": "^0.12.2",
+    "antd": "^6.0.0",
+    "axios": "^1.13.2"
+  }
+}
