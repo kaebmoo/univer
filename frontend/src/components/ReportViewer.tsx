@@ -63,59 +63,89 @@ export const ReportViewer: React.FC = () => {
   useEffect(() => {
     if (!containerRef.current || !univerSnapshot) return;
 
+    let mounted = true;
+    let univerInstance: Univer | null = null;
+
     // Clean up previous Univer instance
-    if (univerRef.current) {
-      univerRef.current.dispose();
-      univerRef.current = null;
-    }
-
-    // Clear container
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-    }
-
-    // Small delay to ensure cleanup is complete
-    const timer = setTimeout(() => {
-      if (!containerRef.current) return;
-
-      // Create Univer instance with proper locale initialization
-      const univer = new Univer({
-        theme: defaultTheme,
-        locale: LocaleType.EN_US,
-        locales: {
-          [LocaleType.EN_US]: {},
-        },
-      });
-
-      // Register core plugins in correct order
-      univer.registerPlugin(UniverRenderEnginePlugin);
-      univer.registerPlugin(UniverUIPlugin, {
-        container: containerRef.current,
-      });
-
-      // Register Docs plugins
-      univer.registerPlugin(UniverDocsPlugin);
-      univer.registerPlugin(UniverDocsUIPlugin);
-
-      // Register Sheets plugins
-      univer.registerPlugin(UniverSheetsPlugin);
-      univer.registerPlugin(UniverSheetsUIPlugin);
-
-      // Register Formula plugins
-      univer.registerPlugin(UniverFormulaEnginePlugin);
-      univer.registerPlugin(UniverSheetsFormulaPlugin);
-
-      // Create workbook from snapshot
-      univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
-
-      univerRef.current = univer;
-    }, 100);
-
-    // Cleanup on unmount
-    return () => {
-      clearTimeout(timer);
+    const cleanup = async () => {
       if (univerRef.current) {
-        univerRef.current.dispose();
+        try {
+          univerRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing Univer instance:', error);
+        }
+        univerRef.current = null;
+      }
+
+      // Clear container thoroughly
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+        // Force layout recalculation
+        containerRef.current.offsetHeight;
+      }
+    };
+
+    // Perform cleanup and initialization
+    cleanup().then(() => {
+      // Longer delay to ensure complete cleanup
+      setTimeout(() => {
+        if (!mounted || !containerRef.current) return;
+
+        try {
+          // Create new Univer instance
+          const univer = new Univer({
+            theme: defaultTheme,
+            locale: LocaleType.EN_US,
+            locales: {
+              [LocaleType.EN_US]: {},
+            },
+          });
+
+          // Register core plugins in correct order
+          univer.registerPlugin(UniverRenderEnginePlugin);
+          univer.registerPlugin(UniverUIPlugin, {
+            container: containerRef.current,
+          });
+
+          // Register Docs plugins
+          univer.registerPlugin(UniverDocsPlugin);
+          univer.registerPlugin(UniverDocsUIPlugin);
+
+          // Register Sheets plugins
+          univer.registerPlugin(UniverSheetsPlugin);
+          univer.registerPlugin(UniverSheetsUIPlugin);
+
+          // Register Formula plugins
+          univer.registerPlugin(UniverFormulaEnginePlugin);
+          univer.registerPlugin(UniverSheetsFormulaPlugin);
+
+          // Create workbook from snapshot
+          univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
+
+          univerInstance = univer;
+          univerRef.current = univer;
+        } catch (error) {
+          console.error('Error creating Univer instance:', error);
+        }
+      }, 250); // Increased delay for better cleanup
+    });
+
+    // Cleanup on unmount or dependency change
+    return () => {
+      mounted = false;
+      if (univerInstance) {
+        try {
+          univerInstance.dispose();
+        } catch (error) {
+          console.error('Error disposing Univer on cleanup:', error);
+        }
+      }
+      if (univerRef.current) {
+        try {
+          univerRef.current.dispose();
+        } catch (error) {
+          console.error('Error disposing univerRef on cleanup:', error);
+        }
         univerRef.current = null;
       }
       if (containerRef.current) {
