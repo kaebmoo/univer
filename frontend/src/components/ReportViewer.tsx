@@ -18,10 +18,33 @@ import { UniverUIPlugin } from '@univerjs/ui';
 
 import { useReport } from '../contexts/ReportContext';
 
+const MONTH_NAMES_TH_SHORT = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+];
+
 export const ReportViewer: React.FC = () => {
   const { univerSnapshot, isLoading, error, currentFilter, exportReport } = useReport();
   const containerRef = useRef<HTMLDivElement>(null);
   const univerRef = useRef<Univer | null>(null);
+
+  const getMonthRangeLabel = () => {
+    if (!currentFilter || !currentFilter.months || currentFilter.months.length === 0) {
+      return '';
+    }
+
+    const sortedMonths = [...currentFilter.months].sort((a, b) => a - b);
+    const thaiYear = currentFilter.year + 543;
+
+    if (sortedMonths.length === 1) {
+      return `${MONTH_NAMES_TH_SHORT[sortedMonths[0] - 1]} ${thaiYear}`;
+    }
+
+    const firstMonth = MONTH_NAMES_TH_SHORT[sortedMonths[0] - 1];
+    const lastMonth = MONTH_NAMES_TH_SHORT[sortedMonths[sortedMonths.length - 1] - 1];
+
+    return `${firstMonth} - ${lastMonth} ${thaiYear}`;
+  };
 
   const handleExport = async () => {
     if (!currentFilter) {
@@ -46,7 +69,7 @@ export const ReportViewer: React.FC = () => {
       univerRef.current = null;
     }
 
-    // Clear container to remove old DOM elements
+    // Clear container
     if (containerRef.current) {
       containerRef.current.innerHTML = '';
     }
@@ -140,7 +163,7 @@ export const ReportViewer: React.FC = () => {
     <Card
       title={
         currentFilter
-          ? `รายงานผลดำเนินงาน ปี ${currentFilter.year} (${currentFilter.months.length} เดือน)`
+          ? `รายงานผลดำเนินงาน ${getMonthRangeLabel()}`
           : 'รายงานผลดำเนินงาน'
       }
       extra={
@@ -161,8 +184,8 @@ export const ReportViewer: React.FC = () => {
         ref={containerRef}
         style={{
           width: '100%',
-          height: 'calc(100vh - 300px)',
-          minHeight: 600,
+          height: 'calc(100vh - 200px)',
+          minHeight: 700,
         }}
       />
     </Card>

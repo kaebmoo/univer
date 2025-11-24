@@ -262,6 +262,7 @@ async def export_to_excel(
     from datetime import datetime as dt
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
+    from app.services.group_order import sort_service_groups
 
     logger.info(
         f"Excel export requested by {current_user.email}: "
@@ -272,84 +273,63 @@ async def export_to_excel(
         # Load raw data and create crosstab
         df = data_loader.filter_data(filter.year, filter.months, filter.business_groups)
 
+        if df.empty:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No data found for the specified filters"
+            )
+
         # Create Excel file in memory
         output = BytesIO()
 
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Create P&L Report crosstab
+            # Helper function to create and format crosstab
+            def create_crosstab(data, value_col, sheet_name):
+                if data.empty:
+                    return None
 
-            # Revenue crosstab (use TYPE='รายได้' and AMOUNT column)
-            df_revenue = df[df['TYPE'] == 'รายได้'].copy()
-            if not df_revenue.empty:
-                revenue_pivot = pd.pivot_table(
-                    df_revenue,
+                # Create pivot table
+                pivot = pd.pivot_table(
+                    data,
                     index=['TYPE', 'หมวดบัญชี'],
                     columns='SERVICE_GROUP',
-                    values='AMOUNT',
+                    values=value_col,
                     aggfunc='sum',
-                    fill_value=0,
-                    margins=True,
-                    margins_name='รวมทั้งหมด'
+                    fill_value=0
                 )
-                revenue_pivot.to_excel(writer, sheet_name='รายได้', merge_cells=False)
 
-            # Cost of Service crosstab (use AMOUNT column)
-            df_cost = df[df['TYPE'] == 'ต้นทุนบริการ'].copy()
-            if not df_cost.empty:
-                cost_pivot = pd.pivot_table(
-                    df_cost,
-                    index=['TYPE', 'หมวดบัญชี'],
-                    columns='SERVICE_GROUP',
-                    values='AMOUNT',
-                    aggfunc='sum',
-                    fill_value=0,
-                    margins=True,
-                    margins_name='รวมทั้งหมด'
-                )
-                cost_pivot.to_excel(writer, sheet_name='ต้นทุนบริการ', merge_cells=False)
+                # Sort columns by service group order
+                sorted_cols = sort_service_groups(pivot.columns.tolist())
+                pivot = pivot[[col for col in sorted_cols if col in pivot.columns]]
 
-            # Selling Expense crosstab (use AMOUNT column)
-            df_selling = df[df['TYPE'] == 'ค่าใช้จ่ายขายและการตลาด'].copy()
-            if not df_selling.empty:
-                selling_pivot = pd.pivot_table(
-                    df_selling,
-                    index=['TYPE', 'หมวดบัญชี'],
-                    columns='SERVICE_GROUP',
-                    values='AMOUNT',
-                    aggfunc='sum',
-                    fill_value=0,
-                    margins=True,
-                    margins_name='รวมทั้งหมด'
-                )
-                selling_pivot.to_excel(writer, sheet_name='ค่าใช้จ่ายขาย', merge_cells=False)
+                # Add Total column at the beginning
+                total_col = pivot.sum(axis=1)
+                pivot.insert(0, 'รวมทั้งหมด', total_col)
 
-            # Admin Expense crosstab (use AMOUNT column)
-            df_admin = df[df['TYPE'] == 'ค่าใช้จ่ายสนับสนุน'].copy()
-            if not df_admin.empty:
-                admin_pivot = pd.pivot_table(
-                    df_admin,
-                    index=['TYPE', 'หมวดบัญชี'],
-                    columns='SERVICE_GROUP',
-                    values='AMOUNT',
-                    aggfunc='sum',
-                    fill_value=0,
-                    margins=True,
-                    margins_name='รวมทั้งหมด'
-                )
-                admin_pivot.to_excel(writer, sheet_name='ค่าใช้จ่ายสนับสนุน', merge_cells=False)
+                # Write to Excel
+                pivot.to_excel(writer, sheet_name=sheet_name, merge_cells=False)
 
-            # Complete P&L crosstab (all types combined, use AMOUNT column)
-            pl_pivot = pd.pivot_table(
-                df,
-                index=['TYPE', 'หมวดบัญชี'],
-                columns='SERVICE_GROUP',
-                values='AMOUNT',
-                aggfunc='sum',
-                fill_value=0,
-                margins=True,
-                margins_name='รวมทั้งหมด'
-            )
-            pl_pivot.to_excel(writer, sheet_name='P&L Report', merge_cells=False)
+                return writer.sheets[sheet_name]
+
+            # Create Summary Sheet (P&L Complete)
+            df['VALUE'] = df['REVENUE_VALUE'].fillna(0) + df['EXPENSE_VALUE'].fillna(0)
+            summary_ws = create_crosstab(df, 'VALUE', 'สรุปรวม P&L')
+
+            # Revenue crosstab
+            df_revenue = df[df['REVENUE_VALUE'] > 0].copy()
+            revenue_ws = create_crosstab(df_revenue, 'REVENUE_VALUE', 'รายได้')
+
+            # Cost of Service crosstab
+            df_cost = df[df['TYPE'] == '02 ต้นทุนบริการ'].copy()
+            cost_ws = create_crosstab(df_cost, 'EXPENSE_VALUE', 'ต้นทุนบริการ')
+
+            # Selling Expense crosstab
+            df_selling = df[df['TYPE'] == '03 ค่าใช้จ่ายขายและการตลาด'].copy()
+            selling_ws = create_crosstab(df_selling, 'EXPENSE_VALUE', 'ค่าใช้จ่ายขาย')
+
+            # Admin Expense crosstab
+            df_admin = df[df['TYPE'] == '04 ค่าใช้จ่ายสนับสนุน'].copy()
+            admin_ws = create_crosstab(df_admin, 'EXPENSE_VALUE', 'ค่าใช้จ่ายสนับสนุน')
 
             # Apply formatting to all sheets
             for sheet_name in writer.sheets:
@@ -359,43 +339,51 @@ async def export_to_excel(
                 header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
                 header_font = Font(bold=True, color='FFFFFF', size=11)
 
-                # Format header rows
+                # Format header rows (first 2 rows)
                 for row in worksheet.iter_rows(min_row=1, max_row=2, min_col=1, max_col=worksheet.max_column):
                     for cell in row:
                         cell.fill = header_fill
                         cell.font = header_font
                         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-                # Format total column/row
+                # Format Total column (column C - รวมทั้งหมด)
                 total_fill = PatternFill(start_color='FFD966', end_color='FFD966', fill_type='solid')
                 total_font = Font(bold=True)
 
-                # Find and format "รวมทั้งหมด" rows and columns
-                for row in worksheet.iter_rows(min_row=3, max_row=worksheet.max_row):
-                    if row[0].value == 'รวมทั้งหมด' or (row[1].value and 'รวม' in str(row[1].value)):
-                        for cell in row:
-                            cell.fill = total_fill
-                            cell.font = total_font
+                # Format total column header
+                worksheet['C1'].fill = total_fill
+                worksheet['C1'].font = Font(bold=True, color='000000', size=11)
 
-                # Format number columns
-                for row in worksheet.iter_rows(min_row=3, max_row=worksheet.max_row, min_col=3):
-                    for cell in row:
-                        if isinstance(cell.value, (int, float)):
+                # Format total column data
+                for row_idx in range(3, worksheet.max_row + 1):
+                    cell = worksheet[f'C{row_idx}']
+                    cell.fill = total_fill
+                    cell.font = total_font
+                    if isinstance(cell.value, (int, float)):
+                        if cell.value < 0:
+                            cell.number_format = '[Red](#,##0.00)'
+                        else:
                             cell.number_format = '#,##0.00'
+                        cell.alignment = Alignment(horizontal='right')
+
+                # Format other number columns
+                for col_idx in range(4, worksheet.max_column + 1):
+                    col_letter = get_column_letter(col_idx)
+                    for row_idx in range(3, worksheet.max_row + 1):
+                        cell = worksheet[f'{col_letter}{row_idx}']
+                        if isinstance(cell.value, (int, float)):
+                            if cell.value < 0:
+                                cell.number_format = '[Red](#,##0.00)'
+                            else:
+                                cell.number_format = '#,##0.00'
                             cell.alignment = Alignment(horizontal='right')
 
                 # Auto-adjust column widths
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if cell.value:
-                                max_length = max(max_length, len(str(cell.value)))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 3, 60)
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
+                worksheet.column_dimensions['A'].width = 35  # TYPE
+                worksheet.column_dimensions['B'].width = 45  # หมวดบัญชี
+                for col_idx in range(3, worksheet.max_column + 1):
+                    col_letter = get_column_letter(col_idx)
+                    worksheet.column_dimensions[col_letter].width = 18
 
                 # Add borders
                 thin_border = Border(
@@ -408,11 +396,15 @@ async def export_to_excel(
                     for cell in row:
                         cell.border = thin_border
 
+                # Freeze panes (first 2 rows and first 2 columns)
+                worksheet.freeze_panes = 'C3'
+
         # Prepare file for download
         output.seek(0)
 
-        # Generate filename
-        months_str = '-'.join(map(str, filter.months))
+        # Generate filename with month range
+        sorted_months = sorted(filter.months)
+        months_str = '-'.join(map(str, sorted_months))
         filename = f"P&L_Report_{filter.year}_{months_str}_{dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
         logger.info(f"Excel file generated successfully: {filename}")

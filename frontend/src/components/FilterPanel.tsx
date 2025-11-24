@@ -130,6 +130,8 @@ export const FilterPanel: React.FC = () => {
           สร้างรายงาน
         </Button>
       }
+      size="small"
+      styles={{ body: { paddingTop: 8, paddingBottom: 8 } }}
     >
       {error && (
         <Alert
@@ -139,80 +141,78 @@ export const FilterPanel: React.FC = () => {
           closable
           onClose={clearError}
           showIcon
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 8 }}
         />
       )}
 
       <Form
         form={form}
-        layout="vertical"
+        layout="inline"
         onFinish={handleGenerateReport}
-        size="middle"
+        size="small"
+        style={{ flexWrap: 'wrap', gap: '8px' }}
       >
-        <Row gutter={16}>
-          <Col xs={24} md={8}>
-            <Form.Item
-              name="year"
-              label="ปี"
-              rules={[{ required: true, message: 'กรุณาเลือกปี' }]}
-            >
-              <Select placeholder="เลือกปี">
-                {filterOptions.available_years.map((year) => (
-                  <Option key={year} value={year}>
-                    {year + 543} ({year})
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
+        <Form.Item
+          name="year"
+          label="ปี"
+          rules={[{ required: true, message: 'กรุณาเลือกปี' }]}
+          style={{ marginBottom: 8 }}
+        >
+          <Select placeholder="เลือกปี" style={{ width: 140 }}>
+            {filterOptions.available_years.map((year) => (
+              <Option key={year} value={year}>
+                {year + 543} ({year})
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
 
-          <Col xs={24} md={16}>
-            <Form.Item
-              name="months"
-              label="เดือน"
-              rules={[
-                { required: true, message: 'กรุณาเลือกอย่างน้อย 1 เดือน' },
-              ]}
-            >
-              <Select
-                mode="multiple"
-                placeholder="เลือกเดือน"
-                maxTagCount="responsive"
-              >
-                {MONTHS.map((month) => (
-                  <Option key={month.value} value={month.value}>
-                    {month.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+        <Form.Item
+          name="months"
+          label="เดือน"
+          rules={[
+            { required: true, message: 'กรุณาเลือกอย่างน้อย 1 เดือน' },
+          ]}
+          style={{ marginBottom: 8, minWidth: 250 }}
+        >
+          <Select
+            mode="multiple"
+            placeholder="เลือกเดือน"
+            maxTagCount={2}
+            style={{ minWidth: 200 }}
+          >
+            {MONTHS.map((month) => (
+              <Option key={month.value} value={month.value}>
+                {month.label}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
 
-            <Space wrap style={{ marginBottom: 16 }}>
-              <Button size="small" onClick={handleSelectAllMonths}>
-                ทั้งปี
-              </Button>
-              <Button size="small" onClick={() => handleSelectQuarter(1)}>
-                Q1
-              </Button>
-              <Button size="small" onClick={() => handleSelectQuarter(2)}>
-                Q2
-              </Button>
-              <Button size="small" onClick={() => handleSelectQuarter(3)}>
-                Q3
-              </Button>
-              <Button size="small" onClick={() => handleSelectQuarter(4)}>
-                Q4
-              </Button>
-            </Space>
-          </Col>
-        </Row>
+        <Space wrap size="small" style={{ marginBottom: 8 }}>
+          <Button size="small" onClick={handleSelectAllMonths}>
+            ทั้งปี
+          </Button>
+          <Button size="small" onClick={() => handleSelectQuarter(1)}>
+            Q1
+          </Button>
+          <Button size="small" onClick={() => handleSelectQuarter(2)}>
+            Q2
+          </Button>
+          <Button size="small" onClick={() => handleSelectQuarter(3)}>
+            Q3
+          </Button>
+          <Button size="small" onClick={() => handleSelectQuarter(4)}>
+            Q4
+          </Button>
+        </Space>
 
-        <Form.Item>
+        <Form.Item style={{ marginBottom: 8 }}>
           <Checkbox
             checked={selectAllGroups}
             onChange={(e) => handleToggleSelectAllGroups(e.target.checked)}
           >
-            เลือกทุกกลุ่มธุรกิจ
+            ทุกกลุ่มธุรกิจ
           </Checkbox>
         </Form.Item>
 
@@ -226,11 +226,13 @@ export const FilterPanel: React.FC = () => {
                 message: 'กรุณาเลือกกลุ่มธุรกิจอย่างน้อย 1 กลุ่ม',
               },
             ]}
+            style={{ marginBottom: 8, minWidth: 250 }}
           >
             <Select
               mode="multiple"
               placeholder="เลือกกลุ่มธุรกิจ"
-              maxTagCount="responsive"
+              maxTagCount={2}
+              style={{ minWidth: 200 }}
             >
               {filterOptions.available_business_groups.map((group) => (
                 <Option key={group} value={group}>
