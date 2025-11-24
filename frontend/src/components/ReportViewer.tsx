@@ -77,7 +77,7 @@ export const ReportViewer: React.FC = () => {
         univerRef.current = null;
       }
 
-      // Clear container thoroughly
+      // Clear container thoroughly to prevent "removeChild" errors
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
         // Force layout recalculation
