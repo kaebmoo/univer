@@ -91,7 +91,7 @@ class UniverConverter:
         Args:
             row: Row index (0-based)
             col: Column index (0-based)
-            value: ค่าที่จะแสดง
+            value: ค่าที่จะแสดง (ถ้าเป็น 0 จะแสดงเป็นค่าว่าง)
             style: Style definition
             formula: Formula (ถ้ามี)
 
@@ -108,11 +108,16 @@ class UniverConverter:
         if formula:
             cell["v"]["f"] = formula
 
-        # ใส่ค่า
+        # ใส่ค่า - ถ้าเป็นตัวเลข 0 ให้แสดงเป็นค่าว่าง
         if value is not None:
             if isinstance(value, (int, float)):
-                cell["v"]["v"] = value
-                cell["v"]["t"] = "n"  # number type
+                if value == 0:
+                    # ถ้าเป็น 0 ให้แสดงค่าว่าง
+                    cell["v"]["v"] = ""
+                    cell["v"]["t"] = "s"  # string type
+                else:
+                    cell["v"]["v"] = value
+                    cell["v"]["t"] = "n"  # number type
             else:
                 cell["v"]["v"] = str(value)
                 cell["v"]["t"] = "s"  # string type
@@ -153,14 +158,13 @@ class UniverConverter:
 
         Args:
             value: ค่าตัวเลข
-            number_format: Number format pattern
             bg_color: สีพื้นหลัง
             bold: ตัวหนา
 
         Returns:
             Style object
         """
-        # ถ้าไม่ระบุ format ให้ใช้ format ที่จัดการค่าติดลบ
+        # ถ้าไม่ระบุ format ให้ใช้ format ที่แสดงค่าติดลบในวงเล็บ
         if number_format is None:
             number_format = self.NUMBER_FORMATS["currency_parentheses"]
 
@@ -172,6 +176,10 @@ class UniverConverter:
 
         if bg_color:
             style["bg"] = {"rgb": bg_color}
+
+        # ถ้าค่าติดลบ เพิ่มสีแดงให้กับตัวเลข
+        if value < 0:
+            style["fc"] = {"rgb": self.COLORS["negative"]}
 
         return style
 
