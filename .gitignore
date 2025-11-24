@@ -181,3 +181,4 @@ cython_debug/
 .cursorindexingignore
 docs/Report_NT.pdf
 backend/data/PROFIT_LOSS_DATA_2025.csv
+.DS_Store

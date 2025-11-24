@@ -46,43 +46,57 @@ export const ReportViewer: React.FC = () => {
       univerRef.current = null;
     }
 
-    // Create Univer instance with proper locale initialization
-    const univer = new Univer({
-      theme: defaultTheme,
-      locale: LocaleType.EN_US,
-      locales: {
-        [LocaleType.EN_US]: {},
-      },
-    });
+    // Clear container to remove old DOM elements
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
 
-    // Register core plugins in correct order
-    univer.registerPlugin(UniverRenderEnginePlugin);
-    univer.registerPlugin(UniverUIPlugin, {
-      container: containerRef.current,
-    });
+    // Small delay to ensure cleanup is complete
+    const timer = setTimeout(() => {
+      if (!containerRef.current) return;
 
-    // Register Docs plugins
-    univer.registerPlugin(UniverDocsPlugin);
-    univer.registerPlugin(UniverDocsUIPlugin);
+      // Create Univer instance with proper locale initialization
+      const univer = new Univer({
+        theme: defaultTheme,
+        locale: LocaleType.EN_US,
+        locales: {
+          [LocaleType.EN_US]: {},
+        },
+      });
 
-    // Register Sheets plugins
-    univer.registerPlugin(UniverSheetsPlugin);
-    univer.registerPlugin(UniverSheetsUIPlugin);
+      // Register core plugins in correct order
+      univer.registerPlugin(UniverRenderEnginePlugin);
+      univer.registerPlugin(UniverUIPlugin, {
+        container: containerRef.current,
+      });
 
-    // Register Formula plugins
-    univer.registerPlugin(UniverFormulaEnginePlugin);
-    univer.registerPlugin(UniverSheetsFormulaPlugin);
+      // Register Docs plugins
+      univer.registerPlugin(UniverDocsPlugin);
+      univer.registerPlugin(UniverDocsUIPlugin);
 
-    // Create workbook from snapshot
-    univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
+      // Register Sheets plugins
+      univer.registerPlugin(UniverSheetsPlugin);
+      univer.registerPlugin(UniverSheetsUIPlugin);
 
-    univerRef.current = univer;
+      // Register Formula plugins
+      univer.registerPlugin(UniverFormulaEnginePlugin);
+      univer.registerPlugin(UniverSheetsFormulaPlugin);
+
+      // Create workbook from snapshot
+      univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerSnapshot);
+
+      univerRef.current = univer;
+    }, 100);
 
     // Cleanup on unmount
     return () => {
+      clearTimeout(timer);
       if (univerRef.current) {
         univerRef.current.dispose();
         univerRef.current = null;
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
   }, [univerSnapshot]);
