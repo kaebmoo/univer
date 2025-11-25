@@ -225,6 +225,7 @@ class DataAggregator:
     def get_row_data(
         self,
         row_label: str,
+        main_group_label: str,
         bu_list: List[str],
         service_group_dict: Dict[str, List[str]]
     ) -> Dict[str, float]:
@@ -233,6 +234,7 @@ class DataAggregator:
 
         Args:
             row_label: Row label
+            main_group_label: The label of the current main group (context).
             bu_list: List of BUs
             service_group_dict: Dict mapping BU to list of service groups
 
@@ -246,8 +248,8 @@ class DataAggregator:
             # Will be handled by calculator
             return result
 
-        # Get GROUP and SUB_GROUP for this row
-        group, sub_group = get_group_sub_group(row_label)
+        # Get GROUP and SUB_GROUP for this row, using context
+        group, sub_group = get_group_sub_group(row_label, main_group_label)
 
         if group is None:
             return result

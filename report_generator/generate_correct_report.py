@@ -66,7 +66,7 @@ def generate_correct_report(csv_path: Path, output_path: Path):
     for bu in bu_list:
         product_dict[bu] = {}
         for sg in service_group_dict[bu]:
-            products = df[(df['BU'] == bu) & (df['SERVICE_GROUP'] == sg)][['PRODUCT_KEY', 'PRODUCT_NAME']].drop_duplicates()
+            products = df[(df['BU'] == bu) & (df['SERVICE_GROUP'] == sg)][['PRODUCT_KEY', 'PRODUCT_NAME']].sort_values(by='PRODUCT_KEY').drop_duplicates()
             product_dict[bu][sg] = list(products.itertuples(index=False, name=None))
 
     # Create Excel
@@ -275,8 +275,14 @@ def generate_correct_report(csv_path: Path, output_path: Path):
     current_row = start_row + header_rows
     all_row_data = {}
     previous_label = None
+    # New: Track the current main group context for sub-items
+    current_main_group_label = None
 
     for level, label, is_calc, formula, is_bold in ROW_ORDER:
+        # New: Update the main group context if this is a level 0 row
+        if level == 0:
+            current_main_group_label = label
+
         if not label:
             current_row += 1
             continue
@@ -310,10 +316,12 @@ def generate_correct_report(csv_path: Path, output_path: Path):
         elif is_calculated_row(label):
             row_data = aggregator.calculate_summary_row(label, bu_list, service_group_dict, all_row_data)
         else:
-            row_data = aggregator.get_row_data(label, bu_list, service_group_dict)
+            # Modified: Pass the main group context to the aggregator
+            row_data = aggregator.get_row_data(label, current_main_group_label, bu_list, service_group_dict)
 
         all_row_data[label] = row_data
-        group, sub_group = get_group_sub_group(label)
+        # Modified: Pass context to get_group_sub_group
+        group, sub_group = get_group_sub_group(label, current_main_group_label)
         previous_label = label
 
         # Determine row color

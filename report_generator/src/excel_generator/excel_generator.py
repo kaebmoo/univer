@@ -339,9 +339,15 @@ class ExcelGenerator:
 
         # Store all row data for calculated rows
         all_row_data = {}
+        # New: Track the current main group context for sub-items
+        current_main_group_label = None
 
         for row_def in rows:
             label = row_def['label']
+
+            # New: Update the main group context if this is a level 0 row
+            if row_def['level'] == 0:
+                current_main_group_label = label
 
             if not label:  # Empty row
                 current_row += 1
@@ -366,7 +372,8 @@ class ExcelGenerator:
             if is_calculated_row(label):
                 row_data = aggregator.calculate_summary_row(label, bu_list, service_group_dict, all_row_data)
             else:
-                row_data = aggregator.get_row_data(label, bu_list, service_group_dict)
+                # Modified: Pass the main group context to the aggregator
+                row_data = aggregator.get_row_data(label, current_main_group_label, bu_list, service_group_dict)
 
             # Store for later calculations
             all_row_data[label] = row_data

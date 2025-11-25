@@ -8,20 +8,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+import re
+
+
 class DataProcessor:
     """Process and aggregate P&L data"""
 
-    # Business Group order
-    BU_ORDER = [
-        "กลุ่มธุรกิจ HARD INFRASTRUCTURE",
-        "กลุ่มธุรกิจ INTERNATIONAL",
-        "กลุ่มธุรกิจ MOBILE",
-        "กลุ่มธุรกิจ FIXED LINE & BROADBAND",
-        "กลุ่มธุรกิจ DIGITAL",
-        "กลุ่มธุรกิจ ICT SOLUTION",
-        "กลุ่มบริการอื่นไม่ใช่โทรคมนาคม",
-        "รายได้อื่น/ค่าใช้จ่ายอื่น",
-    ]
+    @staticmethod
+    def _natural_sort_key(s: str) -> list:
+        """
+        Create a sort key for natural sorting of strings like '1.10', '1.2'.
+        Example: '1.10. some text' -> [1, 10]
+        """
+        # Extracts numbers at the beginning of the string, separated by dots.
+        match = re.match(r'^[0-9\.]+', s)
+        if not match:
+            return [s]  # Return the string itself if no numeric prefix
+        
+        # Split by dot and convert to int for numerical sorting
+        return [int(text) for text in match.group(0).split('.') if text.isdigit()]
 
     def __init__(self):
         """Initialize data processor"""
@@ -153,7 +158,7 @@ class DataProcessor:
 
     def get_unique_business_units(self, df: pd.DataFrame) -> List[str]:
         """
-        Get unique business units in order
+        Get unique business units, sorted naturally.
 
         Args:
             df: Dataframe with BU column
@@ -165,19 +170,9 @@ class DataProcessor:
             return []
 
         unique_bus = df['BU'].dropna().unique().tolist()
-
-        # Sort according to predefined order
-        ordered_bus = []
-        for bu in self.BU_ORDER:
-            if bu in unique_bus:
-                ordered_bus.append(bu)
-
-        # Add any remaining BUs not in the predefined order
-        for bu in unique_bus:
-            if bu not in ordered_bus:
-                ordered_bus.append(bu)
-
-        return ordered_bus
+        
+        # Sort the list using the natural sort key
+        return sorted(unique_bus, key=self._natural_sort_key)
 
     def get_unique_service_groups(
         self,
@@ -185,7 +180,7 @@ class DataProcessor:
         bu: Optional[str] = None
     ) -> List[str]:
         """
-        Get unique service groups for a given BU
+        Get unique service groups for a given BU, sorted naturally.
 
         Args:
             df: Dataframe with SERVICE_GROUP column
@@ -200,7 +195,10 @@ class DataProcessor:
         if bu:
             df = df[df['BU'] == bu]
 
-        return sorted(df['SERVICE_GROUP'].dropna().unique().tolist())
+        unique_sgs = df['SERVICE_GROUP'].dropna().unique().tolist()
+        
+        # Sort the list using the natural sort key
+        return sorted(unique_sgs, key=self._natural_sort_key)
 
     def filter_by_period(
         self,
