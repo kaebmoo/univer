@@ -357,7 +357,13 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                     elif ratio_calc_type == "service_cost_no_personnel_depreciation_ratio":
                         service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
                         cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                        total_cost_check = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
                         value = cost_no_pers_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
+                        # Debug logging
+                        if pk == "181030004":
+                            logger.info(f"DEBUG RETRIEVE: Looking up with key='{product_key_str}'")
+                            logger.info(f"DEBUG RETRIEVE: revenue={service_revenue}, cost_row3={cost_no_pers_dep}, cost_row1={total_cost_check}, ratio={value}")
+                            logger.info(f"DEBUG RETRIEVE: Available keys in row-3: {list(all_row_data.get('     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ', {}).keys())[:5]}")
                     else:
                         value = None
                 else:
@@ -365,10 +371,13 @@ def generate_correct_report(csv_path: Path, output_path: Path):
 
                 # Store product-level values for calculated rows
                 product_key_str = f"{bu}_{sg}_{pk}"
-                if product_key_str not in all_row_data.get(label, {}):
-                    if label not in all_row_data:
-                        all_row_data[label] = {}
-                    all_row_data[label][product_key_str] = value
+                if label not in all_row_data:
+                    all_row_data[label] = {}
+                all_row_data[label][product_key_str] = value
+
+                # Debug logging - check what we stored
+                if pk == "181030004" and ("ต้นทุนบริการ" in label or label == "รายได้บริการ"):
+                    logger.info(f"DEBUG STORE: label='{label}', key='{product_key_str}', value={value}")
             else:
                 continue
 
