@@ -306,6 +306,10 @@ async def export_to_excel(
                 total_col = pivot.sum(axis=1)
                 pivot.insert(0, 'รวมทั้งหมด', total_col)
 
+                # Fix floating point errors - round และเปลี่ยนค่าที่ใกล้ 0 ให้เป็น 0
+                pivot = pivot.round(10)  # ปัดเศษที่ทศนิยม 10 ตำแหน่ง
+                pivot = pivot.applymap(lambda x: 0 if abs(x) < 1e-9 else x)  # ค่าใกล้ 0 ให้เป็น 0
+
                 # Write to Excel
                 pivot.to_excel(writer, sheet_name=sheet_name, merge_cells=False)
 
@@ -360,10 +364,8 @@ async def export_to_excel(
                     cell.fill = total_fill
                     cell.font = total_font
                     if isinstance(cell.value, (int, float)):
-                        if cell.value < 0:
-                            cell.number_format = '[Red](#,##0.00)'
-                        else:
-                            cell.number_format = '#,##0.00'
+                        # บวก: comma separated, ลบ: วงเล็บแดง, 0: ค่าว่าง
+                        cell.number_format = '#,##0.00;[Red](#,##0.00);""'
                         cell.alignment = Alignment(horizontal='right')
 
                 # Format other number columns
@@ -372,10 +374,8 @@ async def export_to_excel(
                     for row_idx in range(3, worksheet.max_row + 1):
                         cell = worksheet[f'{col_letter}{row_idx}']
                         if isinstance(cell.value, (int, float)):
-                            if cell.value < 0:
-                                cell.number_format = '[Red](#,##0.00)'
-                            else:
-                                cell.number_format = '#,##0.00'
+                            # บวก: comma separated, ลบ: วงเล็บแดง, 0: ค่าว่าง
+                            cell.number_format = '#,##0.00;[Red](#,##0.00);""'
                             cell.alignment = Alignment(horizontal='right')
 
                 # Auto-adjust column widths

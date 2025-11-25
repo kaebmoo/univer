@@ -182,3 +182,8 @@ cython_debug/
 docs/Report_NT.pdf
 backend/data/PROFIT_LOSS_DATA_2025.csv
 .DS_Store
+*.csv
+data/remark_20251031.txt
+*.xlsx
+data/specification.md
+fixed_number_format.md

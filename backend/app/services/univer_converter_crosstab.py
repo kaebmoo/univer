@@ -36,7 +36,7 @@ class UniverConverterCrosstab:
     # Number formats
     NUMBER_FORMATS = {
         "currency": "#,##0.00",
-        "currency_negative": "#,##0.00;[Red]-#,##0.00",
+        "currency_negative": '#,##0.00;[Red](#,##0.00);""',  # บวก: comma separated, ลบ: วงเล็บแดง, 0: ค่าว่าง
         "percentage": "0.00%",
     }
 
@@ -79,14 +79,17 @@ class UniverConverterCrosstab:
             "v": {}
         }
 
-        # Set value
-        if value is not None:
-            if isinstance(value, (int, float)):
-                cell["v"]["v"] = float(value)
-                cell["v"]["t"] = 2  # number type
-            else:
-                cell["v"]["v"] = str(value)
-                cell["v"]["t"] = 1  # string type
+        # Set value - ไม่มี manual check สำหรับ 0 ให้ number format จัดการเอง
+        if isinstance(value, (int, float)):
+            # Round เพื่อป้องกัน floating point errors เช่น -1.4E-14
+            rounded_value = round(value, 10)  # ปัดเศษที่ทศนิยม 10 ตำแหน่ง
+            if abs(rounded_value) < 1e-9:  # ถ้าใกล้ 0 มากๆ ให้เป็น 0
+                rounded_value = 0
+            cell["v"]["v"] = rounded_value
+            cell["v"]["t"] = "n"  # number type (string "n" ตามมาตรฐาน Univer)
+        elif value is not None:
+            cell["v"]["v"] = str(value)
+            cell["v"]["t"] = "s"  # string type (string "s" ตามมาตรฐาน Univer)
 
         # Set style
         if style:
@@ -124,13 +127,14 @@ class UniverConverterCrosstab:
             "n": {"pattern": self.NUMBER_FORMATS["currency_negative"]},
             "bl": 1 if bold else 0,
             "ht": 3,  # horizontal align: right
+            "vt": 2,  # vertical align: middle
         }
 
         if bg_color:
             style["bg"] = {"rgb": bg_color}
 
-        if value < 0:
-            style["fc"] = {"rgb": self.COLORS["negative"]}
+        # Note: สีแดงสำหรับค่าลบจะถูกกำหนดโดย [Red] ใน pattern แล้ว
+        # ไม่ต้องตั้ง fc แยกเพราะจะทับกัน
 
         return style
 
@@ -188,6 +192,10 @@ class UniverConverterCrosstab:
             revenue_crosstab.index.str.startswith('R', na=False)
         ]
 
+        # Fix floating point errors
+        revenue_crosstab = revenue_crosstab.round(10)
+        revenue_crosstab = revenue_crosstab.applymap(lambda x: 0 if abs(x) < 1e-9 else x)
+
         # สร้าง crosstab สำหรับต้นทุนบริการ
         df_cost = df[df['TYPE'] == 'ต้นทุนบริการ'].copy()
         cost_crosstab = self._create_cost_crosstab(df_cost, business_groups_list)
@@ -238,6 +246,10 @@ class UniverConverterCrosstab:
             if col in result.columns:
                 result[col] = crosstab[col]
 
+        # Fix floating point errors - round และเปลี่ยนค่าที่ใกล้ 0 ให้เป็น 0
+        result = result.round(10)  # ปัดเศษที่ทศนิยม 10 ตำแหน่ง
+        result = result.applymap(lambda x: 0 if abs(x) < 1e-9 else x)  # ค่าใกล้ 0 ให้เป็น 0
+
         # Filter เอาเฉพาะ C categories
         result = result[result.index.str.startswith('C', na=False)]
 
@@ -262,6 +274,10 @@ class UniverConverterCrosstab:
         Returns:
             Univer snapshot object
         """
+        # Reset styles for new conversion
+        self.styles_registry = {}
+        self.next_style_id = 0
+
         # สร้าง crosstab data
         crosstab_data = self.create_crosstab_data(year, months, business_groups)
 
