@@ -354,10 +354,16 @@ class DataAggregator:
 
         elif calc_type == "net_profit":
             # 14 = 12 - 13
+            # Net profit is only calculated at GRAND_TOTAL level
+            # For BU_TOTAL and SG columns, return None
             ebt = all_row_data.get("12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)", {})
             tax = all_row_data.get("13.ภาษีเงินได้นิติบุคคล", {})
             for key in ebt:
-                result[key] = ebt.get(key, 0) - tax.get(key, 0)
+                # Only calculate for GRAND_TOTAL
+                if key == "GRAND_TOTAL":
+                    result[key] = ebt.get(key, 0) - tax.get(key, 0)
+                else:
+                    result[key] = None  # Will be displayed with gray background
             return result
 
         elif calc_type == "sum_revenue":
@@ -670,10 +676,9 @@ class DataAggregator:
 
         elif calc_type == "net_profit":
             # 14 = 12 - 13
-            product_key_str = f"{bu}_{service_group}_{product_key}"
-            ebt = all_row_data.get("12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)", {}).get(product_key_str, 0)
-            tax = all_row_data.get("13.ภาษีเงินได้นิติบุคคล", {}).get(product_key_str, 0)
-            return ebt - tax
+            # Net profit is only calculated at GRAND_TOTAL level, not at product/BU/SG level
+            # Return None to indicate this should not be displayed
+            return None
 
         elif calc_type == "sum_revenue":
             # Sum all revenue (GROUP = 01 + 09)
