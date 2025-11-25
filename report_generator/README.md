@@ -1,4 +1,4 @@
-# Univer Report Generator
+# Profit and Loss Report Generator
 
 ระบบสร้างรายงาน P&L (Profit & Loss) แบบ Excel จากไฟล์ CSV โดยรองรับการทำงานทั้งแบบ Command Line และ Web Application
 
