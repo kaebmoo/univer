@@ -387,7 +387,7 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                 cell.value = ""
                 # Apply dark gray background for None values (e.g., row 14 for non-grand-total columns)
                 if col_type != "GRAND_TOTAL" and label == "14.กำไร(ขาดทุน) สุทธิ (12) - (13)":
-                    cell.fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+                    cell.fill = PatternFill(start_color="A6A6A6", end_color="A6A6A6", fill_type="solid")
             elif isinstance(value, float) and "สัดส่วน" in label:
                 cell.value = value
                 cell.number_format = '0.00%'
