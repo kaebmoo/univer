@@ -52,7 +52,7 @@
 
 ## โครงสร้างโปรเจกต์
 
-\`\`\`
+```
 report_generator/
 ├── config/                 # Configuration files
 │   ├── settings.py        # Settings และ configuration
@@ -79,53 +79,53 @@ report_generator/
 ├── .env.example          # Environment variables template
 ├── CHECKLIST.md          # Development checklist
 └── README.md             # This file
-\`\`\`
+```
 
 ## Installation
 
 ### 1. Clone repository
-\`\`\`bash
+```bash
 cd /Users/seal/Documents/GitHub/univer/report_generator
-\`\`\`
+```
 
 ### 2. Create virtual environment
-\`\`\`bash
+```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-\`\`\`
+```
 
 ### 3. Install dependencies
-\`\`\`bash
+```bash
 pip install -r requirements.txt
-\`\`\`
+```
 
 ### 4. Configure environment
-\`\`\`bash
+```bash
 cp .env.example .env
 # Edit .env and configure your settings
-\`\`\`
+```
 
 ## Usage
 
 ### Command-Line Interface
 
 #### Basic usage (auto-detect)
-\`\`\`bash
+```bash
 python -m src.cli.cli --data-dir ../data --output-dir ./output
-\`\`\`
+```
 
 #### Generate specific report type
-\`\`\`bash
+```bash
 python -m src.cli.cli --data-dir ../data --output-dir ./output --type COSTTYPE
-\`\`\`
+```
 
 #### Generate for specific date
-\`\`\`bash
+```bash
 python -m src.cli.cli --data-dir ../data --output-dir ./output --date 20251031
-\`\`\`
+```
 
 #### Full options
-\`\`\`bash
+```bash
 python -m src.cli.cli \\
     --data-dir ../data \\
     --output-dir ./output \\
@@ -133,16 +133,16 @@ python -m src.cli.cli \\
     --date 20251031 \\
     --encoding tis-620 \\
     --verbose
-\`\`\`
+```
 
 ### Web Application
 
 #### Start server
-\`\`\`bash
+```bash
 python -m src.web.main
 # หรือ
 uvicorn src.web.main:app --host 0.0.0.0 --port 8000 --reload
-\`\`\`
+```
 
 #### API Endpoints
 
@@ -168,17 +168,17 @@ uvicorn src.web.main:app --host 0.0.0.0 --port 8000 --reload
 1. Enable 2-factor authentication in your Google account
 2. Generate App Password: https://myaccount.google.com/apppasswords
 3. Add to `.env`:
-\`\`\`
+```
 SMTP_USERNAME=your_email@gmail.com
 SMTP_PASSWORD=your_app_password
-\`\`\`
+```
 
 ### Allowed Email Domains
 
 Edit `.env`:
-\`\`\`
+```
 ALLOWED_EMAIL_DOMAINS=company.com,company.co.th,example.com
-\`\`\`
+```
 
 ## Data Files
 
@@ -195,29 +195,29 @@ ALLOWED_EMAIL_DOMAINS=company.com,company.co.th,example.com
 ## Development
 
 ### Run tests
-\`\`\`bash
+```bash
 pytest
-\`\`\`
+```
 
 ### Run with auto-reload (development)
-\`\`\`bash
+```bash
 uvicorn src.web.main:app --reload
-\`\`\`
+```
 
 ### Enable debug mode
 Edit `.env`:
-\`\`\`
+```
 DEBUG=True
 APP_ENV=development
-\`\`\`
+```
 
 ## Troubleshooting
 
 ### CSV Encoding Issues
 ถ้าอ่านไฟล์ CSV ไม่ได้ ให้ลองเปลี่ยน encoding:
-\`\`\`bash
+```bash
 python -m src.cli.cli --data-dir ../data --output-dir ./output --encoding windows-874
-\`\`\`
+```
 
 ### Email Not Sending
 1. ตรวจสอบ SMTP credentials ใน `.env`
