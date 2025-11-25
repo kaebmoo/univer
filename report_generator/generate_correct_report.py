@@ -298,19 +298,20 @@ def generate_correct_report(csv_path: Path, output_path: Path):
         )
 
         # Get row data - handle ratio rows with context
-        if label == "         สัดส่วนต่อรายได้":
+        is_ratio_row = (label == "         สัดส่วนต่อรายได้")
+        ratio_calc_type = None
+
+        if is_ratio_row:
             # Determine which ratio to calculate based on previous row
             if previous_label == "     1. ต้นทุนบริการรวม":
-                calc_type = "total_service_cost_ratio"
+                ratio_calc_type = "total_service_cost_ratio"
             elif previous_label == "     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ":
-                calc_type = "service_cost_no_depreciation_ratio"
+                ratio_calc_type = "service_cost_no_depreciation_ratio"
             elif previous_label == "     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ":
-                calc_type = "service_cost_no_personnel_depreciation_ratio"
-            else:
-                calc_type = None
+                ratio_calc_type = "service_cost_no_personnel_depreciation_ratio"
 
-            if calc_type:
-                row_data = aggregator._calculate_ratio_by_type(calc_type, all_row_data, bu_list, service_group_dict)
+            if ratio_calc_type:
+                row_data = aggregator._calculate_ratio_by_type(ratio_calc_type, all_row_data, bu_list, service_group_dict)
             else:
                 row_data = {}
         elif is_calculated_row(label):
@@ -341,7 +342,27 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                 value = row_data.get(f"{bu}_{sg}", 0)
             elif col_type == "PRODUCT":
                 # For product level, use the new calculate_product_value method
-                value = aggregator.calculate_product_value(label, bu, sg, pk, all_row_data, current_main_group_label)
+                # Special handling for ratio rows
+                if is_ratio_row and ratio_calc_type:
+                    # Calculate ratio for this specific product
+                    product_key_str = f"{bu}_{sg}_{pk}"
+                    if ratio_calc_type == "total_service_cost_ratio":
+                        service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+                        total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+                        value = total_cost / service_revenue if abs(service_revenue) >= 1e-9 else None
+                    elif ratio_calc_type == "service_cost_no_depreciation_ratio":
+                        service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+                        cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                        value = cost_no_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
+                    elif ratio_calc_type == "service_cost_no_personnel_depreciation_ratio":
+                        service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+                        cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                        value = cost_no_pers_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
+                    else:
+                        value = None
+                else:
+                    value = aggregator.calculate_product_value(label, bu, sg, pk, all_row_data, current_main_group_label)
+
                 # Store product-level values for calculated rows
                 product_key_str = f"{bu}_{sg}_{pk}"
                 if product_key_str not in all_row_data.get(label, {}):
@@ -355,6 +376,9 @@ def generate_correct_report(csv_path: Path, output_path: Path):
 
             if value is None:
                 cell.value = ""
+                # Apply dark gray background for None values (e.g., row 14 for non-grand-total columns)
+                if col_type != "GRAND_TOTAL" and label == "14.กำไร(ขาดทุน) สุทธิ (12) - (13)":
+                    cell.fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
             elif isinstance(value, float) and "สัดส่วน" in label:
                 cell.value = value
                 cell.number_format = '0.00%'
@@ -369,8 +393,8 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                 top=Side(style='thin'), bottom=Side(style='thin')
             )
 
-            # Apply section header color to all data cells in the row
-            if section_header_color:
+            # Apply section header color to all data cells in the row (only if not already gray)
+            if section_header_color and not (value is None and col_type != "GRAND_TOTAL" and label == "14.กำไร(ขาดทุน) สุทธิ (12) - (13)"):
                 cell.fill = PatternFill(start_color=section_header_color, end_color=section_header_color, fill_type="solid")
 
         current_row += 1
