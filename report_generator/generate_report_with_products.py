@@ -216,11 +216,17 @@ def generate_report_with_products(csv_path: Path, output_path: Path):
     # Write data rows
     current_row = start_row + header_rows
     all_row_data = {}
+    # Track the current main group context
+    current_main_group_label = None
 
     for level, label, is_calc, formula, is_bold in ROW_ORDER:
         if not label:
             current_row += 1
             continue
+
+        # Update the main group context if this is a level 0 row
+        if level == 0:
+            current_main_group_label = label
 
         # Write label
         cell = ws.cell(row=current_row + 1, column=start_col + 1)
@@ -239,12 +245,12 @@ def generate_report_with_products(csv_path: Path, output_path: Path):
         if is_calculated_row(label):
             row_data = aggregator.calculate_summary_row(label, bu_list, service_group_dict, all_row_data)
         else:
-            row_data = aggregator.get_row_data(label, bu_list, service_group_dict)
+            row_data = aggregator.get_row_data(label, current_main_group_label, bu_list, service_group_dict)
 
         all_row_data[label] = row_data
 
         # Get GROUP and SUB_GROUP for this row
-        group, sub_group = get_group_sub_group(label)
+        group, sub_group = get_group_sub_group(label, current_main_group_label)
 
         # Write values
         for col_idx, (col_type, bu, sg, pk, pn) in column_mapping.items():
@@ -255,12 +261,14 @@ def generate_report_with_products(csv_path: Path, output_path: Path):
                 key = f"BU_TOTAL_{bu}"
                 value = row_data.get(key, 0)
             elif col_type == "PRODUCT":
-                # For product level, use get_value_by_product
-                if group and not is_calculated_row(label):
-                    value = aggregator.get_value_by_product(group, sub_group, bu, sg, pk)
-                else:
-                    # For calculated rows, product-level is not supported (use 0)
-                    value = 0
+                # For product level, use the new calculate_product_value method
+                value = aggregator.calculate_product_value(label, bu, sg, pk, all_row_data, current_main_group_label)
+                # Store product-level values for calculated rows
+                product_key_str = f"{bu}_{sg}_{pk}"
+                if product_key_str not in all_row_data.get(label, {}):
+                    if label not in all_row_data:
+                        all_row_data[label] = {}
+                    all_row_data[label][product_key_str] = value
             else:
                 continue
             cell = ws.cell(row=current_row + 1, column=col_idx + 1)
