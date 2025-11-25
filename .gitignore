@@ -187,3 +187,4 @@ data/remark_20251031.txt
 *.xlsx
 data/specification.md
 fixed_number_format.md
+report_generator/output/correct_report.pdf
