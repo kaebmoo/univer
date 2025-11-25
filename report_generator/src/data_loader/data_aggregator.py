@@ -198,18 +198,34 @@ class DataAggregator:
         if group not in self.lookup_with_products:
             return 0
 
-        sub_key = sub_group if sub_group else "_TOTAL_"
-        if sub_key not in self.lookup_with_products[group]:
-            return 0
-
         if bu is None:
             return 0  # Product-level requires BU
 
-        if bu not in self.lookup_with_products[group][sub_key]:
-            return 0
-
         if service_group is None:
             return 0  # Product-level requires SERVICE_GROUP
+
+        sub_key = sub_group if sub_group else "_TOTAL_"
+
+        # If sub_key not found, sum across all sub_groups
+        if sub_key not in self.lookup_with_products[group]:
+            if sub_group is None:
+                # Sum all sub-groups for this GROUP
+                total = 0
+                for sub_k in self.lookup_with_products[group]:
+                    if bu in self.lookup_with_products[group][sub_k]:
+                        service_key = service_group if service_group else "_TOTAL_"
+                        if service_key in self.lookup_with_products[group][sub_k][bu]:
+                            if product_key is None:
+                                # Sum all products
+                                total += sum(self.lookup_with_products[group][sub_k][bu][service_key].values())
+                            else:
+                                product_key_str = str(product_key)
+                                total += self.lookup_with_products[group][sub_k][bu][service_key].get(product_key_str, 0)
+                return total
+            return 0
+
+        if bu not in self.lookup_with_products[group][sub_key]:
+            return 0
 
         service_key = service_group if service_group else "_TOTAL_"
         if service_key not in self.lookup_with_products[group][sub_key][bu]:
@@ -300,7 +316,51 @@ class DataAggregator:
 
         result = {}
 
-        if calc_type == "sum_revenue":
+        # Main profit/loss calculations
+        if calc_type == "gross_profit":
+            # 3 = 1 - 2
+            revenue_data = all_row_data.get("1.รายได้", {})
+            cost_data = all_row_data.get("2.ต้นทุนบริการและต้นทุนขาย :", {})
+            for key in revenue_data:
+                result[key] = revenue_data.get(key, 0) - cost_data.get(key, 0)
+            return result
+
+        elif calc_type == "profit_after_selling":
+            # 5 = 3 - 4
+            gross_profit = all_row_data.get("3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)", {})
+            selling_expense = all_row_data.get("4.ค่าใช้จ่ายขายและการตลาด :", {})
+            for key in gross_profit:
+                result[key] = gross_profit.get(key, 0) - selling_expense.get(key, 0)
+            return result
+
+        elif calc_type == "profit_before_finance":
+            # 8 = 5 - 6 - 7
+            profit5 = all_row_data.get("5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)", {})
+            admin_expense = all_row_data.get("6.ค่าใช้จ่ายบริหารและสนับสนุน :", {})
+            finance_operating = all_row_data.get("7.ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {})
+            for key in profit5:
+                result[key] = profit5.get(key, 0) - admin_expense.get(key, 0) - finance_operating.get(key, 0)
+            return result
+
+        elif calc_type == "ebt":
+            # 12 = 8 + 9 - 10 - 11
+            profit8 = all_row_data.get("8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)", {})
+            financial_income = all_row_data.get("9.ผลตอบแทนทางการเงินและรายได้อื่น", {})
+            other_expense = all_row_data.get("10.ค่าใช้จ่ายอื่น", {})
+            finance_funding = all_row_data.get("11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {})
+            for key in profit8:
+                result[key] = profit8.get(key, 0) + financial_income.get(key, 0) - other_expense.get(key, 0) - finance_funding.get(key, 0)
+            return result
+
+        elif calc_type == "net_profit":
+            # 14 = 12 - 13
+            ebt = all_row_data.get("12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)", {})
+            tax = all_row_data.get("13.ภาษีเงินได้นิติบุคคล", {})
+            for key in ebt:
+                result[key] = ebt.get(key, 0) - tax.get(key, 0)
+            return result
+
+        elif calc_type == "sum_revenue":
             # Sum all revenue (GROUP = 01 + 09)
             groups = ["01.รายได้", "09.ผลตอบแทนทางการเงินและรายได้อื่น"]
             return self._sum_multiple_groups(groups, bu_list, service_group_dict)
@@ -576,7 +636,46 @@ class DataAggregator:
         if not calc_type:
             return 0
 
-        if calc_type == "sum_revenue":
+        # Main profit/loss calculations
+        if calc_type == "gross_profit":
+            # 3 = 1 - 2
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            revenue = all_row_data.get("1.รายได้", {}).get(product_key_str, 0)
+            cost = all_row_data.get("2.ต้นทุนบริการและต้นทุนขาย :", {}).get(product_key_str, 0)
+            return revenue - cost
+
+        elif calc_type == "profit_after_selling":
+            # 5 = 3 - 4
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            gross_profit = all_row_data.get("3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)", {}).get(product_key_str, 0)
+            selling_expense = all_row_data.get("4.ค่าใช้จ่ายขายและการตลาด :", {}).get(product_key_str, 0)
+            return gross_profit - selling_expense
+
+        elif calc_type == "profit_before_finance":
+            # 8 = 5 - 6 - 7
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            profit5 = all_row_data.get("5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)", {}).get(product_key_str, 0)
+            admin_expense = all_row_data.get("6.ค่าใช้จ่ายบริหารและสนับสนุน :", {}).get(product_key_str, 0)
+            finance_operating = all_row_data.get("7.ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {}).get(product_key_str, 0)
+            return profit5 - admin_expense - finance_operating
+
+        elif calc_type == "ebt":
+            # 12 = 8 + 9 - 10 - 11
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            profit8 = all_row_data.get("8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)", {}).get(product_key_str, 0)
+            financial_income = all_row_data.get("9.ผลตอบแทนทางการเงินและรายได้อื่น", {}).get(product_key_str, 0)
+            other_expense = all_row_data.get("10.ค่าใช้จ่ายอื่น", {}).get(product_key_str, 0)
+            finance_funding = all_row_data.get("11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {}).get(product_key_str, 0)
+            return profit8 + financial_income - other_expense - finance_funding
+
+        elif calc_type == "net_profit":
+            # 14 = 12 - 13
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            ebt = all_row_data.get("12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)", {}).get(product_key_str, 0)
+            tax = all_row_data.get("13.ภาษีเงินได้นิติบุคคล", {}).get(product_key_str, 0)
+            return ebt - tax
+
+        elif calc_type == "sum_revenue":
             # Sum all revenue (GROUP = 01 + 09)
             groups = ["01.รายได้", "09.ผลตอบแทนทางการเงินและรายได้อื่น"]
             total = 0

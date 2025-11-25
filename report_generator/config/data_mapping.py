@@ -111,14 +111,27 @@ CONTEXTUAL_MAPPING = {
 
 # Rows that need to be calculated (not in CSV)
 CALCULATED_ROWS = {
+    # Main profit/loss calculations
+    "3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)": "gross_profit",  # 1 - 2
+    "5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)": "profit_after_selling",  # 3 - 4
+    "8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)": "profit_before_finance",  # 5 - 6 - 7
+    "12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)": "ebt",  # 8 + 9 - 10 - 11
+    "14.กำไร(ขาดทุน) สุทธิ (12) - (13)": "net_profit",  # 12 - 13
+
+    # Summary rows
     "รายได้รวม": "sum_revenue",  # Sum of all revenue (GROUP = 01)
     "ค่าใช้จ่ายรวม (ไม่รวมต้นทุนทางการเงิน)": "sum_expense_no_finance",  # Sum of 02, 04, 06
     "ค่าใช้จ่ายรวม (รวมต้นทุนทางการเงิน)": "sum_expense_with_finance",  # Sum of 02, 04, 06, 07, 11
     "EBITDA": "ebitda",  # EBIT + depreciation + amortization
+
+    # Service cost analysis
     "รายได้บริการ": "service_revenue",  # Revenue excluding other income
     "     1. ต้นทุนบริการรวม": "total_service_cost",  # GROUP = 02 total
     "     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ": "service_cost_no_depreciation",
     "     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ": "service_cost_no_personnel_depreciation",
+
+    # Ratios
+    "         สัดส่วนต่อรายได้": "ratio_to_revenue",  # Context-dependent ratio
 }
 
 # Special handling for ratio rows that have context-dependent calculation
