@@ -340,10 +340,14 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                 # Service Group total = sum of all products in this SG
                 value = row_data.get(f"{bu}_{sg}", 0)
             elif col_type == "PRODUCT":
-                if group and not is_calculated_row(label):
-                    value = aggregator.get_value_by_product(group, sub_group, bu, sg, pk)
-                else:
-                    value = 0
+                # For product level, use the new calculate_product_value method
+                value = aggregator.calculate_product_value(label, bu, sg, pk, all_row_data, current_main_group_label)
+                # Store product-level values for calculated rows
+                product_key_str = f"{bu}_{sg}_{pk}"
+                if product_key_str not in all_row_data.get(label, {}):
+                    if label not in all_row_data:
+                        all_row_data[label] = {}
+                    all_row_data[label][product_key_str] = value
             else:
                 continue
 
