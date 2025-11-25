@@ -116,6 +116,11 @@ for level, label, is_calc, formula, is_bold in ROW_ORDER:
    - เพิ่ม context tracking สำหรับ main group label
    - เก็บ product-level values ใน `all_row_data` สำหรับการคำนวณแบบ cascading
 
+3. **generate_correct_report.py** ⭐
+   - แก้ไขการคำนวณค่าในระดับ product (เหมือน #2)
+   - ใช้ `calculate_product_value()` แทนการใส่ค่า 0
+   - เก็บ product-level values ใน `all_row_data`
+
 ## Expected Results
 
 หลังจากการแก้ไข Excel report จะแสดง:
@@ -131,10 +136,18 @@ for level, label, is_calc, formula, is_bold in ROW_ORDER:
 To test the fix:
 ```bash
 cd /home/user/univer/report_generator
+python3 generate_correct_report.py
+```
+
+หรือ
+
+```bash
 python3 generate_report_with_products.py
 ```
 
 ตรวจสอบ Excel output ว่ามีการแสดงผลค่าในระดับ product ครบถ้วนหรือไม่
+
+**Note**: ตอนแรกแก้ไขเฉพาะ `generate_report_with_products.py` แต่ต่อมาแก้ไข `generate_correct_report.py` เพิ่มเติมในคอมมิต `492aeb5` เพราะผู้ใช้รันไฟล์นี้จริงๆ
 
 ## Date
 2025-11-25
