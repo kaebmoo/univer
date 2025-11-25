@@ -358,6 +358,9 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                         service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
                         cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
                         value = cost_no_pers_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
+                        # Debug logging
+                        if pk == "181030004":  # Debug for first product
+                            logger.debug(f"DEBUG Ratio calc for {pk}: service_revenue={service_revenue}, cost_no_pers_dep={cost_no_pers_dep}, ratio={value}")
                     else:
                         value = None
                 else:
@@ -365,10 +368,13 @@ def generate_correct_report(csv_path: Path, output_path: Path):
 
                 # Store product-level values for calculated rows
                 product_key_str = f"{bu}_{sg}_{pk}"
-                if product_key_str not in all_row_data.get(label, {}):
-                    if label not in all_row_data:
-                        all_row_data[label] = {}
-                    all_row_data[label][product_key_str] = value
+                if label not in all_row_data:
+                    all_row_data[label] = {}
+                all_row_data[label][product_key_str] = value
+
+                # Debug logging
+                if pk == "181030004" and label == "     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ":
+                    logger.info(f"DEBUG Stored {label} for {pk}: {value}")
             else:
                 continue
 
