@@ -276,7 +276,9 @@ class DataAggregator:
         row_label: str,
         bu_list: List[str],
         service_group_dict: Dict[str, List[str]],
-        all_row_data: Dict[str, Dict[str, float]]
+        all_row_data: Dict[str, Dict[str, float]],
+        include_products: bool = False,
+        product_dict: Optional[Dict[str, Dict[str, List[Tuple]]]] = None
     ) -> Dict[str, float]:
         """
         Calculate summary rows (EBITDA, totals, ratios)
@@ -286,6 +288,8 @@ class DataAggregator:
             bu_list: List of BUs
             service_group_dict: Dict mapping BU to service groups
             all_row_data: All previously calculated row data
+            include_products: Whether to include product-level calculations
+            product_dict: Dict mapping BU -> SERVICE_GROUP -> [(PRODUCT_KEY, PRODUCT_NAME)]
 
         Returns:
             Dict mapping column identifiers to calculated values
@@ -536,6 +540,201 @@ class DataAggregator:
                 result[key] = numerator / denominator
 
         return result
+
+    def calculate_product_value(
+        self,
+        row_label: str,
+        bu: str,
+        service_group: str,
+        product_key: str,
+        all_row_data: Dict[str, Dict[str, float]],
+        main_group_label: Optional[str] = None
+    ) -> float:
+        """
+        Calculate value for a specific product in a calculated row
+
+        Args:
+            row_label: Row label
+            bu: Business unit
+            service_group: Service group
+            product_key: Product key
+            all_row_data: All previously calculated row data
+            main_group_label: The label of the current main group (context)
+
+        Returns:
+            Calculated value for this product
+        """
+        # Check if this is a calculated row
+        if not is_calculated_row(row_label):
+            # Not a calculated row, get directly from data
+            group, sub_group = get_group_sub_group(row_label, main_group_label)
+            if group:
+                return self.get_value_by_product(group, sub_group, bu, service_group, product_key)
+            return 0
+
+        calc_type = get_calculation_type(row_label)
+        if not calc_type:
+            return 0
+
+        if calc_type == "sum_revenue":
+            # Sum all revenue (GROUP = 01 + 09)
+            groups = ["01.รายได้", "09.ผลตอบแทนทางการเงินและรายได้อื่น"]
+            total = 0
+            for group in groups:
+                total += self.get_value_by_product(group, None, bu, service_group, product_key)
+            return total
+
+        elif calc_type == "sum_expense_no_finance":
+            # Sum of cost of service, selling, admin, other expenses (02, 04, 06, 10)
+            groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :",
+                "10.ค่าใช้จ่ายอื่น"
+            ]
+            total = 0
+            for group in groups:
+                total += self.get_value_by_product(group, None, bu, service_group, product_key)
+            return total
+
+        elif calc_type == "sum_expense_with_finance":
+            # Sum including finance costs (02, 04, 06, 07, 10, 11)
+            groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :",
+                "07.ต้นทุนทางการเงิน-ด้านการดำเนินงาน",
+                "10.ค่าใช้จ่ายอื่น",
+                "11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน"
+            ]
+            total = 0
+            for group in groups:
+                total += self.get_value_by_product(group, None, bu, service_group, product_key)
+            return total
+
+        elif calc_type == "ebitda":
+            # EBITDA = Revenue Total - Expense Total (excl. finance & depreciation)
+            # Get revenue and expense from all_row_data
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            revenue_data = all_row_data.get("รายได้รวม", {})
+            expense_data = all_row_data.get("ค่าใช้จ่ายรวม (ไม่รวมต้นทุนทางการเงิน)", {})
+
+            # Get depreciation from expense groups (02, 04, 06)
+            depreciation = self._sum_depreciation_by_product(bu, service_group, product_key)
+
+            # EBITDA = Revenue - Expense + Depreciation
+            revenue = revenue_data.get(product_key_str, 0)
+            expense = expense_data.get(product_key_str, 0)
+            return revenue - expense + depreciation
+
+        elif calc_type == "service_revenue":
+            # Revenue excluding other income (exclude GROUP 09)
+            return self.get_value_by_product("01.รายได้", None, bu, service_group, product_key)
+
+        elif calc_type == "total_service_cost":
+            # Total service cost (GROUP 02)
+            return self.get_value_by_product("02.ต้นทุนบริการและต้นทุนขาย :", None, bu, service_group, product_key)
+
+        elif calc_type == "total_service_cost_ratio":
+            # Ratio = total_service_cost / service_revenue
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+
+            if abs(service_revenue) < 1e-9:
+                return None  # Division by zero
+            return total_cost / service_revenue
+
+        elif calc_type == "service_cost_no_depreciation":
+            # Depreciation portion of service cost from GROUP 02
+            depreciation_category = "12.ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์"
+            group = "02.ต้นทุนบริการและต้นทุนขาย :"
+            return self.get_value_by_product(group, depreciation_category, bu, service_group, product_key)
+
+        elif calc_type == "service_cost_no_depreciation_ratio":
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+
+            if abs(service_revenue) < 1e-9:
+                return None
+            return cost_no_dep / service_revenue
+
+        elif calc_type == "service_cost_no_personnel_depreciation":
+            # Service cost excluding personnel and depreciation
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+            personnel = self._sum_personnel_by_product(bu, service_group, product_key, "02.ต้นทุนบริการและต้นทุนขาย :")
+
+            # Get only SUB_GROUP 12 (not 13)
+            depreciation_category = "12.ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์"
+            group = "02.ต้นทุนบริการและต้นทุนขาย :"
+            depreciation = self.get_value_by_product(group, depreciation_category, bu, service_group, product_key)
+
+            return total_cost - personnel - depreciation
+
+        elif calc_type == "service_cost_no_personnel_depreciation_ratio":
+            product_key_str = f"{bu}_{service_group}_{product_key}"
+            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
+            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+
+            if abs(service_revenue) < 1e-9:
+                return None
+            return cost_no_pers_dep / service_revenue
+
+        return 0
+
+    def _sum_depreciation_by_product(
+        self,
+        bu: str,
+        service_group: str,
+        product_key: str,
+        group_filter: Optional[str] = None
+    ) -> float:
+        """Sum depreciation categories for a specific product"""
+        total = 0
+
+        # Groups to search for depreciation
+        if group_filter:
+            expense_groups = [group_filter]
+        else:
+            expense_groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :"
+            ]
+
+        for dep_category in DEPRECIATION_CATEGORIES:
+            for group in expense_groups:
+                total += self.get_value_by_product(group, dep_category, bu, service_group, product_key)
+
+        return total
+
+    def _sum_personnel_by_product(
+        self,
+        bu: str,
+        service_group: str,
+        product_key: str,
+        group_filter: Optional[str] = None
+    ) -> float:
+        """Sum personnel cost categories for a specific product"""
+        total = 0
+
+        # Groups to search for personnel costs
+        if group_filter:
+            expense_groups = [group_filter]
+        else:
+            expense_groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :"
+            ]
+
+        for pers_category in PERSONNEL_CATEGORIES:
+            for group in expense_groups:
+                total += self.get_value_by_product(group, pers_category, bu, service_group, product_key)
+
+        return total
 
     def _calculate_ratio_by_type(
         self,
