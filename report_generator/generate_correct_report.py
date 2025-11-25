@@ -357,10 +357,13 @@ def generate_correct_report(csv_path: Path, output_path: Path):
                     elif ratio_calc_type == "service_cost_no_personnel_depreciation_ratio":
                         service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
                         cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                        total_cost_check = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
                         value = cost_no_pers_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
                         # Debug logging
                         if pk == "181030004":  # Debug for first product
-                            logger.debug(f"DEBUG Ratio calc for {pk}: service_revenue={service_revenue}, cost_no_pers_dep={cost_no_pers_dep}, ratio={value}")
+                            logger.info(f"DEBUG Ratio-3 for {pk}: revenue={service_revenue}, cost_no_pers_dep={cost_no_pers_dep}, total_cost={total_cost_check}, ratio={value}")
+                            logger.info(f"DEBUG all_row_data keys: {list(all_row_data.keys())}")
+                            logger.info(f"DEBUG row-3 keys: {list(all_row_data.get('     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ', {}).keys())[:5]}")
                     else:
                         value = None
                 else:
