@@ -3,7 +3,7 @@
 import pandas as pd
 from pathlib import Path
 
-csv_path = Path("data/TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv")
+csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv"
 
 print(f"Reading: {csv_path}")
 df = pd.read_csv(csv_path, encoding='tis-620', nrows=10)

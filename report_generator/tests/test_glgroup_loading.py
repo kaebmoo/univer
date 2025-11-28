@@ -6,7 +6,7 @@ Just test if we can load GLGROUP data successfully
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*70)
 print("GLGROUP Data Loading Test")
@@ -17,7 +17,7 @@ try:
     from config.data_mapping_glgroup import get_group_sub_group_glgroup
     
     # Load GLGROUP data
-    csv_path = Path("data/TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print(f"❌ File not found: {csv_path}")

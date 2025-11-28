@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*60)
 print("Test 2: Generate Report")
@@ -20,7 +20,7 @@ try:
     print("   ✅ Imports successful")
     
     print("\n2. Checking for data file...")
-    csv_path = Path("data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print(f"   ❌ Data file not found: {csv_path}")
@@ -53,7 +53,7 @@ try:
     print("   ✅ Builder created")
     
     print("\n7. Generating report...")
-    output_path = Path("output/test_new_module.xlsx")
+    output_path = Path(__file__).parent.parent / "output" / "test_new_module.xlsx"
     output_path.parent.mkdir(exist_ok=True)
     
     # Load remark if exists

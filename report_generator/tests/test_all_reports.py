@@ -6,7 +6,7 @@ Generate all combinations: COSTTYPE/GLGROUP x MTH/YTD x BU_ONLY/BU_SG/BU_SG_PROD
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*80)
 print("COMPREHENSIVE REPORT GENERATION TEST")
