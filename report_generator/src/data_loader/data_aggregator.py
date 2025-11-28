@@ -748,6 +748,12 @@ class DataAggregator:
         """Calculate ratio, handling division by zero"""
         result = {}
 
+        # Handle None inputs
+        if numerator_dict is None:
+            numerator_dict = {}
+        if denominator_dict is None:
+            denominator_dict = {}
+
         for key in numerator_dict:
             numerator = numerator_dict.get(key, 0)
             denominator = denominator_dict.get(key, 0)
@@ -1153,18 +1159,18 @@ class DataAggregator:
     ) -> Dict[str, float]:
         """Calculate specific ratio type based on context"""
         if calc_type == "total_service_cost_ratio":
-            service_revenue = all_row_data.get("รายได้บริการ", {})
-            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
+            service_revenue = all_row_data.get("รายได้บริการ") or {}
+            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม") or {}
             return self._calculate_ratio(total_cost, service_revenue)
 
         elif calc_type == "service_cost_no_depreciation_ratio":
-            service_revenue = all_row_data.get("รายได้บริการ", {})
-            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {})
+            service_revenue = all_row_data.get("รายได้บริการ") or {}
+            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ") or {}
             return self._calculate_ratio(cost_no_dep, service_revenue)
 
         elif calc_type == "service_cost_no_personnel_depreciation_ratio":
-            service_revenue = all_row_data.get("รายได้บริการ", {})
-            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {})
+            service_revenue = all_row_data.get("รายได้บริการ") or {}
+            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ") or {}
             return self._calculate_ratio(cost_no_pers_dep, service_revenue)
 
         return {}
