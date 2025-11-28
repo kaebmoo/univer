@@ -391,22 +391,22 @@ class DataWriter:
         if is_ratio_row:
             # Calculate ratio for this specific product
             ratio_type = self._get_ratio_type(previous_label)
-            
+
             if ratio_type == "total_service_cost_ratio":
-                service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-                total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+                service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+                total_cost = (all_row_data.get("     1. ต้นทุนบริการรวม") or {}).get(product_key_str, 0)
                 return total_cost / service_revenue if abs(service_revenue) >= 1e-9 else None
-            
+
             elif ratio_type == "service_cost_no_depreciation_ratio":
-                service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-                cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+                cost_no_dep = (all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ") or {}).get(product_key_str, 0)
                 return cost_no_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
-            
+
             elif ratio_type == "service_cost_no_personnel_depreciation_ratio":
-                service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-                cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+                service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+                cost_no_pers_dep = (all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ") or {}).get(product_key_str, 0)
                 return cost_no_pers_dep / service_revenue if abs(service_revenue) >= 1e-9 else None
-            
+
             return None
         
         else:
