@@ -272,7 +272,7 @@ class DataProcessor:
             import calendar
             last_day = calendar.monthrange(year, last_month)[1]
 
-            period_desc = f"สำหรับงวด {len(months)} เดือน สิ้นสุดวันที่ {last_day} {month_name} {buddhist_year}"
+            period_desc = f"สำหรับงวด {last_month} เดือน สิ้นสุดวันที่ {last_day} {month_name} {buddhist_year}"
         else:
             # ประจำเดือน กันยายน 2568
             month = months[0] if months else 1

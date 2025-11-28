@@ -193,9 +193,24 @@ class DataWriter:
         
         # Skip label column
         data_columns = [c for c in columns if c.col_type != 'label']
+
+        # CRITICAL: Row 13 - only show in GRAND_TOTAL column
+        is_tax_row = (label == "13.ภาษีเงินได้นิติบุคคล")
         
         for idx, col in enumerate(data_columns):
             col_index = start_col + idx + 1  # +1 for label column
+
+            # Skip non-grand-total columns for tax row
+            if is_tax_row and col.col_type != 'grand_total':
+                cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                self.formatter.format_data_cell(
+                    cell,
+                    value=None,
+                    is_bold=row_def.is_bold,
+                    bg_color='A6A6A6',
+                    is_percentage=False
+                )
+                continue
             
             # Get value for this cell
             value = self._get_cell_value(
