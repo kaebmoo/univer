@@ -315,7 +315,7 @@ class DataWriter:
     ) -> Optional[float]:
         """
         Get value for a specific cell
-        
+
         Args:
             col: Column definition
             row_data: Row data from aggregator
@@ -325,18 +325,22 @@ class DataWriter:
             all_row_data: All row data (for product calculations)
             current_main_group_label: Main group context
             previous_label: Previous row label
-        
+
         Returns:
             Cell value or None
         """
+        # Handle None row_data
+        if row_data is None:
+            return None
+
         col_type = col.col_type
-        
+
         if col_type == 'grand_total':
             return row_data.get('GRAND_TOTAL', 0)
-        
+
         elif col_type == 'bu_total':
             return row_data.get(f'BU_TOTAL_{col.bu}', 0)
-        
+
         elif col_type == 'sg_total':
             # SG total = sum of all products in this SG
             return row_data.get(f'{col.bu}_{col.service_group}', 0)
@@ -355,7 +359,7 @@ class DataWriter:
                 current_main_group_label,
                 previous_label
             )
-        
+
         return None
     
     def _get_product_value(

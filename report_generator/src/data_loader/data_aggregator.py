@@ -798,32 +798,32 @@ class DataAggregator:
         if calc_type == "gross_profit":
             # 3 = 1 - 2
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            revenue = all_row_data.get("1.รายได้", {}).get(product_key_str, 0)
-            cost = all_row_data.get("2.ต้นทุนบริการและต้นทุนขาย :", {}).get(product_key_str, 0)
+            revenue = (all_row_data.get("1.รายได้") or {}).get(product_key_str, 0)
+            cost = (all_row_data.get("2.ต้นทุนบริการและต้นทุนขาย :") or {}).get(product_key_str, 0)
             return revenue - cost
 
         elif calc_type == "profit_after_selling":
             # 5 = 3 - 4
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            gross_profit = all_row_data.get("3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)", {}).get(product_key_str, 0)
-            selling_expense = all_row_data.get("4.ค่าใช้จ่ายขายและการตลาด :", {}).get(product_key_str, 0)
+            gross_profit = (all_row_data.get("3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)") or {}).get(product_key_str, 0)
+            selling_expense = (all_row_data.get("4.ค่าใช้จ่ายขายและการตลาด :") or {}).get(product_key_str, 0)
             return gross_profit - selling_expense
 
         elif calc_type == "profit_before_finance":
             # 8 = 5 - 6 - 7
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            profit5 = all_row_data.get("5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)", {}).get(product_key_str, 0)
-            admin_expense = all_row_data.get("6.ค่าใช้จ่ายบริหารและสนับสนุน :", {}).get(product_key_str, 0)
-            finance_operating = all_row_data.get("7.ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {}).get(product_key_str, 0)
+            profit5 = (all_row_data.get("5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)") or {}).get(product_key_str, 0)
+            admin_expense = (all_row_data.get("6.ค่าใช้จ่ายบริหารและสนับสนุน :") or {}).get(product_key_str, 0)
+            finance_operating = (all_row_data.get("7.ต้นทุนทางการเงิน-ด้านการดำเนินงาน") or {}).get(product_key_str, 0)
             return profit5 - admin_expense - finance_operating
 
         elif calc_type == "ebt":
             # 12 = 8 + 9 - 10 - 11
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            profit8 = all_row_data.get("8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)", {}).get(product_key_str, 0)
-            financial_income = all_row_data.get("9.ผลตอบแทนทางการเงินและรายได้อื่น", {}).get(product_key_str, 0)
-            other_expense = all_row_data.get("10.ค่าใช้จ่ายอื่น", {}).get(product_key_str, 0)
-            finance_funding = all_row_data.get("11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {}).get(product_key_str, 0)
+            profit8 = (all_row_data.get("8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)") or {}).get(product_key_str, 0)
+            financial_income = (all_row_data.get("9.ผลตอบแทนทางการเงินและรายได้อื่น") or {}).get(product_key_str, 0)
+            other_expense = (all_row_data.get("10.ค่าใช้จ่ายอื่น") or {}).get(product_key_str, 0)
+            finance_funding = (all_row_data.get("11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน") or {}).get(product_key_str, 0)
             return profit8 + financial_income - other_expense - finance_funding
 
         elif calc_type == "net_profit":
@@ -894,8 +894,8 @@ class DataAggregator:
         elif calc_type == "total_service_cost_ratio":
             # Ratio = total_service_cost / service_revenue
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+            service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+            total_cost = (all_row_data.get("     1. ต้นทุนบริการรวม") or {}).get(product_key_str, 0)
 
             if abs(service_revenue) < 1e-9:
                 return None  # Division by zero
@@ -909,8 +909,8 @@ class DataAggregator:
 
         elif calc_type == "service_cost_no_depreciation_ratio":
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+            service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+            cost_no_dep = (all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ") or {}).get(product_key_str, 0)
 
             if abs(service_revenue) < 1e-9:
                 return None
@@ -919,7 +919,7 @@ class DataAggregator:
         elif calc_type == "service_cost_no_personnel_depreciation":
             # Service cost excluding personnel and depreciation
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {}).get(product_key_str, 0)
+            total_cost = (all_row_data.get("     1. ต้นทุนบริการรวม") or {}).get(product_key_str, 0)
             personnel = self._sum_personnel_by_product(bu, service_group, product_key, "02.ต้นทุนบริการและต้นทุนขาย :")
 
             # Get only SUB_GROUP 12 (not 13)
@@ -931,8 +931,8 @@ class DataAggregator:
 
         elif calc_type == "service_cost_no_personnel_depreciation_ratio":
             product_key_str = f"{bu}_{service_group}_{product_key}"
-            service_revenue = all_row_data.get("รายได้บริการ", {}).get(product_key_str, 0)
-            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {}).get(product_key_str, 0)
+            service_revenue = (all_row_data.get("รายได้บริการ") or {}).get(product_key_str, 0)
+            cost_no_pers_dep = (all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ") or {}).get(product_key_str, 0)
 
             if abs(service_revenue) < 1e-9:
                 return None
