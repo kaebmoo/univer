@@ -1,8 +1,9 @@
 """
 Row Builder
 Build row structure from ROW_ORDER configuration
+Supports both COSTTYPE and GLGROUP report types
 """
-from typing import List, Tuple
+from typing import List
 from dataclasses import dataclass
 import logging
 
@@ -48,11 +49,19 @@ class RowBuilder:
     def build_rows(self) -> List[RowDef]:
         """
         Build row structure from ROW_ORDER configuration
+        Selects appropriate ROW_ORDER based on report type
         
         Returns:
             List of RowDef objects
         """
-        from config.row_order import ROW_ORDER
+        # Select ROW_ORDER based on report type
+        if self.config.report_type.value == "GLGROUP":
+            from config.row_order_glgroup import ROW_ORDER_GLGROUP
+            ROW_ORDER = ROW_ORDER_GLGROUP
+            logger.info("Using GLGROUP row order")
+        else:
+            from config.row_order import ROW_ORDER
+            logger.info("Using COSTTYPE row order")
         
         rows = []
         
@@ -60,7 +69,7 @@ class RowBuilder:
             # Determine color for section headers
             color = None
             if is_bold and level == 0 and label:
-                # This is a section header (1.รายได้, 2.ต้นทุน, etc.)
+                # All section headers use same color (F8CBAD)
                 color = self.config.row_colors.get('section_header', 'F8CBAD')
             
             row = RowDef(
@@ -73,7 +82,7 @@ class RowBuilder:
             )
             rows.append(row)
         
-        logger.info(f"Built {len(rows)} rows from ROW_ORDER")
+        logger.info(f"Built {len(rows)} rows from ROW_ORDER ({self.config.report_type.value})")
         return rows
     
     def get_data_rows(self, rows: List[RowDef]) -> List[RowDef]:

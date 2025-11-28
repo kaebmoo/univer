@@ -98,14 +98,17 @@ class DataWriter:
                 start_col
             )
             
-            # Get row data
+            # Get row data - detect report type
             is_ratio_row = (label == "         สัดส่วนต่อรายได้")
             skip_calculation = (label == "คำนวณสัดส่วนต้นทุนบริการต่อรายได้")
+            
+            # Detect report type
+            is_glgroup = (self.config.report_type.value == "GLGROUP")
             
             if skip_calculation:
                 row_data = {}
             elif is_ratio_row:
-                # Context-aware ratio calculation
+                # Context-aware ratio calculation (COSTTYPE only)
                 ratio_type = self._get_ratio_type(previous_label)
                 row_data = aggregator._calculate_ratio_by_type(
                     ratio_type,
@@ -113,8 +116,24 @@ class DataWriter:
                     bu_list,
                     service_group_dict
                 )
+            elif is_glgroup:
+                # GLGROUP methods
+                from config.data_mapping_glgroup import is_calculated_row_glgroup
+                if is_calculated_row_glgroup(label):
+                    row_data = aggregator.calculate_summary_row_glgroup(
+                        label,
+                        bu_list,
+                        service_group_dict,
+                        all_row_data
+                    )
+                else:
+                    row_data = aggregator.get_row_data_glgroup(
+                        label,
+                        bu_list,
+                        service_group_dict
+                    )
             elif is_calculated_row(label):
-                # Calculated row (sum/subtract from other rows)
+                # Calculated row (COSTTYPE)
                 row_data = aggregator.calculate_summary_row(
                     label,
                     bu_list,
@@ -122,7 +141,7 @@ class DataWriter:
                     all_row_data
                 )
             else:
-                # Regular data row
+                # Regular data row (COSTTYPE)
                 row_data = aggregator.get_row_data(
                     label,
                     current_main_group_label,
@@ -194,18 +213,56 @@ class DataWriter:
         # Skip label column
         data_columns = [c for c in columns if c.col_type != 'label']
 
-        # CRITICAL: Row 13 - only show in GRAND_TOTAL column
-        is_tax_row = (label == "13.ภาษีเงินได้นิติบุคคล")
+        # CRITICAL: Row 13 (COSTTYPE) - only show in GRAND_TOTAL column
+        is_tax_row_costtype = (label == "13.ภาษีเงินได้นิติบุคคล")
+        
+        # GLGROUP special rows
+        is_tax_row_glgroup = ("4.ภาษีเงินได้นิติบุคคล" in label)
+        is_net_profit_row_glgroup = ("5.กำไร(ขาดทุน) สุทธิ" in label and "(" in label)
         
         for idx, col in enumerate(data_columns):
             col_index = start_col + idx + 1  # +1 for label column
 
-            # Skip non-grand-total columns for tax row
-            if is_tax_row and col.col_type != 'grand_total':
+            # Tax row COSTTYPE - only show in GRAND_TOTAL
+            if is_tax_row_costtype and col.col_type != 'grand_total':
                 cell = ws.cell(row=row_index + 1, column=col_index + 1)
                 self.formatter.format_data_cell(
                     cell,
                     value=None,
+                    is_bold=row_def.is_bold,
+                    bg_color='A6A6A6',
+                    is_percentage=False
+                )
+                continue
+            
+            # Tax row GLGROUP - only GRAND_TOTAL has value, others gray empty
+            if is_tax_row_glgroup and col.col_type != 'grand_total':
+                cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                self.formatter.format_data_cell(
+                    cell,
+                    value=None,
+                    is_bold=row_def.is_bold,
+                    bg_color='A6A6A6',
+                    is_percentage=False
+                )
+                continue
+            
+            # Net Profit row GLGROUP - has values, non-grand-total gray BG
+            if is_net_profit_row_glgroup and col.col_type != 'grand_total':
+                value = self._get_cell_value(
+                    col,
+                    row_data,
+                    label,
+                    is_ratio_row,
+                    aggregator,
+                    all_row_data,
+                    current_main_group_label,
+                    previous_label
+                )
+                cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                self.formatter.format_data_cell(
+                    cell,
+                    value=value,
                     is_bold=row_def.is_bold,
                     bg_color='A6A6A6',
                     is_percentage=False
