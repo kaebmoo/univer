@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*70)
 print("YTD Report Generation Test - All Detail Levels")
@@ -18,7 +18,7 @@ try:
     from src.data_loader import CSVLoader, DataProcessor
     
     # Data file
-    csv_path = Path("data/TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print(f"❌ Data file not found: {csv_path}")

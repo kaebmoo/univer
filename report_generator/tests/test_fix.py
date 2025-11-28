@@ -5,7 +5,7 @@ Quick Fix Test - Test the fixed column_header_writer
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*60)
 print("Quick Fix Test - Column Headers")
@@ -15,7 +15,7 @@ try:
     from src.report_generator import ReportBuilder, ReportConfig
     from src.data_loader import CSVLoader, DataProcessor
     
-    csv_path = Path("data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print("❌ Data file not found")
@@ -38,7 +38,7 @@ try:
     
     builder = ReportBuilder(config)
     
-    output_path = Path("output/fixed_method.xlsx")
+    output_path = Path(__file__).parent.parent / "output" / "fixed_method.xlsx"
     
     # Load remark
     remark_file = csv_path.parent / "remark_MTH.txt"

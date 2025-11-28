@@ -5,7 +5,7 @@ Quick fix script - เพิ่ม sg type support และแก้ปัญ�
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("Applying quick fixes...")
 

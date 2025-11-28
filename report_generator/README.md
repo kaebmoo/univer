@@ -56,15 +56,31 @@
 report_generator/
 ├── config/                 # Configuration files
 │   ├── settings.py        # Settings และ configuration
-│   └── row_order.py       # Row structure definition
+│   ├── row_order.py       # COSTTYPE row structure
+│   ├── row_order_glgroup.py  # GLGROUP row structure
+│   ├── data_mapping.py    # COSTTYPE data mapping
+│   └── data_mapping_glgroup.py  # GLGROUP data mapping
 ├── src/
 │   ├── data_loader/       # Data loading modules
 │   │   ├── csv_loader.py  # CSV file loader (Thai encoding)
-│   │   └── data_processor.py  # Data processing
-│   ├── excel_generator/   # Excel generation modules
-│   │   ├── excel_generator.py  # Main generator
-│   │   ├── excel_formatter.py  # Formatting
-│   │   └── excel_calculator.py # Calculations
+│   │   ├── data_processor.py  # Data processing
+│   │   └── data_aggregator.py # Data aggregation
+│   ├── report_generator/  # Modular report generation (NEW!)
+│   │   ├── core/          # Core components
+│   │   │   ├── config.py  # Report configuration
+│   │   │   └── report_builder.py  # Main orchestrator
+│   │   ├── columns/       # Column builders (Strategy pattern)
+│   │   │   ├── bu_only_builder.py
+│   │   │   ├── bu_sg_builder.py
+│   │   │   └── bu_sg_product_builder.py
+│   │   ├── rows/          # Row builders
+│   │   ├── writers/       # Excel writers
+│   │   │   ├── header_writer.py
+│   │   │   ├── column_header_writer.py
+│   │   │   ├── data_writer.py
+│   │   │   └── remark_writer.py
+│   │   ├── formatters/    # Cell formatting
+│   │   └── calculators/   # Calculations
 │   ├── cli/               # Command-line interface
 │   │   └── cli.py
 │   └── web/               # Web application
@@ -72,12 +88,23 @@ report_generator/
 │       ├── routes/        # API routes
 │       ├── models/        # Pydantic models
 │       └── utils/         # Utilities (OTP, Email, JWT)
+├── tests/                 # All test files (NEW location!)
+│   ├── test_*.py          # Test suites
+│   ├── check_*.py         # Data validation scripts
+│   └── run_all_tests.py   # Master test runner
+├── docs/                  # Documentation (NEW location!)
+│   ├── USAGE.md           # Usage guide
+│   ├── TESTING_GUIDE.md   # Testing procedures
+│   ├── REFACTOR_PLAN.md   # Refactoring documentation
+│   └── *.md               # Other documentation files
 ├── data/                  # Data files (CSV)
 ├── output/                # Generated reports
-├── tests/                 # Unit tests
+├── archive/               # Archived old implementations
+├── generate_report.py     # ⭐ Simple CLI entry point (RECOMMENDED!)
+├── main.py                # Main entry point (CLI or Web mode)
+├── main_generator.py      # Standalone generator (legacy)
 ├── requirements.txt       # Python dependencies
 ├── .env.example          # Environment variables template
-├── CHECKLIST.md          # Development checklist
 └── README.md             # This file
 ```
 
@@ -107,7 +134,58 @@ cp .env.example .env
 
 ## Usage
 
-### Command-Line Interface
+### ⭐ Simple CLI (แนะนำ - Recommended!)
+
+โปรแกรม `generate_report.py` เป็นวิธีที่ง่ายที่สุดในการสร้างรายงาน Excel
+
+#### Quick start (ใช้ค่า default)
+```bash
+python generate_report.py
+```
+
+#### ระบุประเภทรายงานและระยะเวลา
+```bash
+# COSTTYPE รายเดือน
+python generate_report.py --report-type COSTTYPE --period MTH
+
+# GLGROUP สะสม
+python generate_report.py --report-type GLGROUP --period YTD
+```
+
+#### ระบุระดับความละเอียด
+```bash
+# แสดงเฉพาะ BU Total
+python generate_report.py --detail-level BU_ONLY
+
+# แสดง BU + Service Group Total
+python generate_report.py --detail-level BU_SG
+
+# แสดงครบทุกระดับ (BU + SG + Products) - ค่า default
+python generate_report.py --detail-level BU_SG_PRODUCT
+```
+
+#### ระบุไฟล์ข้อมูลเอง
+```bash
+python generate_report.py --csv-file data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv
+```
+
+#### Full options
+```bash
+python generate_report.py \\
+    --csv-file data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv \\
+    --output output/my_report.xlsx \\
+    --report-type COSTTYPE \\
+    --period MTH \\
+    --detail-level BU_SG_PRODUCT \\
+    --verbose
+```
+
+#### ดูตัวเลือกทั้งหมด
+```bash
+python generate_report.py --help
+```
+
+### Advanced CLI (แบบเดิม)
 
 #### Basic usage (auto-detect)
 ```bash
@@ -122,17 +200,6 @@ python -m src.cli.cli --data-dir ../data --output-dir ./output --type COSTTYPE
 #### Generate for specific date
 ```bash
 python -m src.cli.cli --data-dir ../data --output-dir ./output --date 20251031
-```
-
-#### Full options
-```bash
-python -m src.cli.cli \\
-    --data-dir ../data \\
-    --output-dir ./output \\
-    --type COSTTYPE \\
-    --date 20251031 \\
-    --encoding tis-620 \\
-    --verbose
 ```
 
 ### Web Application
@@ -195,9 +262,33 @@ ALLOWED_EMAIL_DOMAINS=company.com,company.co.th,example.com
 ## Development
 
 ### Run tests
+
+#### Quick test (แนะนำ)
 ```bash
-pytest
+# Run single test
+cd tests
+python test_1_imports.py
+
+# Run report generation test
+python test_2_generate.py
+
+# Run all tests
+python run_all_tests.py
 ```
+
+#### Using pytest
+```bash
+pytest tests/
+```
+
+### Test files ที่สำคัญ
+- `tests/test_1_imports.py` - ทดสอบการ import modules
+- `tests/test_2_generate.py` - ทดสอบการสร้างรายงาน
+- `tests/test_3_compare.py` - เปรียบเทียบ old vs new implementation
+- `tests/test_all_reports.py` - สร้างรายงานทุกแบบ
+- `tests/test_phase2c.py` - ทดสอบระดับความละเอียดต่างๆ
+- `tests/test_glgroup.py` - ทดสอบรายงาน GLGROUP
+- `tests/test_ytd_reports.py` - ทดสอบรายงาน YTD
 
 ### Run with auto-reload (development)
 ```bash
@@ -210,6 +301,28 @@ Edit `.env`:
 DEBUG=True
 APP_ENV=development
 ```
+
+## Documentation
+
+เอกสารเพิ่มเติมอยู่ในโฟลเดอร์ `docs/`:
+
+- 📖 [`docs/USAGE.md`](docs/USAGE.md) - คู่มือการใช้งานแบบละเอียด
+- 🧪 [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) - คู่มือการทดสอบ
+- 🏗️ [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md) - แผน refactoring
+- 📋 [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) - สถานะการพัฒนา
+- 🔄 [`docs/REPORT_GENERATOR_WORKFLOW.md`](docs/REPORT_GENERATOR_WORKFLOW.md) - Workflow การสร้างรายงาน
+- ✅ [`docs/CHECKLIST.md`](docs/CHECKLIST.md) - Development checklist
+
+### เอกสาร GLGROUP
+- [`docs/GLGROUP_IMPLEMENTATION_GUIDE.md`](docs/GLGROUP_IMPLEMENTATION_GUIDE.md)
+- [`docs/GLGROUP_IMPLEMENTATION_COMPLETE.md`](docs/GLGROUP_IMPLEMENTATION_COMPLETE.md)
+- [`docs/GLGROUP_TODO.md`](docs/GLGROUP_TODO.md)
+
+### เอกสาร Phase Development
+- [`docs/PHASE1_PROGRESS.md`](docs/PHASE1_PROGRESS.md)
+- [`docs/PHASE2A_COMPLETE.md`](docs/PHASE2A_COMPLETE.md)
+- [`docs/PHASE2B_COMPLETE.md`](docs/PHASE2B_COMPLETE.md)
+- [`docs/PHASE2C_TODO.md`](docs/PHASE2C_TODO.md)
 
 ## Troubleshooting
 
@@ -238,5 +351,16 @@ For issues and questions, please contact the development team.
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2025-11-25
+**Version:** 2.0.0
+**Last Updated:** 2025-11-28
+
+## Changelog
+
+### Version 2.0.0 (2025-11-28)
+- 🗂️ Reorganized project structure
+  - Moved all test files to `tests/` directory
+  - Moved all documentation to `docs/` directory
+- ⭐ Added `generate_report.py` - Simple CLI entry point (recommended)
+- 📊 Support for 3 detail levels: BU_ONLY, BU_SG, BU_SG_PRODUCT
+- 🏗️ Modular architecture with Strategy pattern
+- 📖 Updated documentation structure

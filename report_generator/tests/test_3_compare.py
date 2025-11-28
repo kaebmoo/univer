@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*60)
 print("Test 3: Compare Old vs New")
@@ -15,7 +15,7 @@ print("="*60)
 
 try:
     print("\n1. Checking for data file...")
-    csv_path = Path("data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print(f"   ❌ Data file not found: {csv_path}")
@@ -46,7 +46,7 @@ try:
     main_gen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(main_gen)
     
-    old_output = Path("output/old_method.xlsx")
+    old_output = Path(__file__).parent.parent / "output" / "old_method.xlsx"
     old_output.parent.mkdir(exist_ok=True)
     
     main_gen.generate_correct_report(csv_path, old_output)
@@ -74,7 +74,7 @@ try:
     
     builder = ReportBuilder(config)
     
-    new_output = Path("output/new_method.xlsx")
+    new_output = Path(__file__).parent.parent / "output" / "new_method.xlsx"
     
     # Load remark
     remark_file = csv_path.parent / "remark_MTH.txt"

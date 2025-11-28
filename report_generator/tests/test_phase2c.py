@@ -6,7 +6,7 @@ Test BU Only and BU+SG builders
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 print("="*60)
 print("Phase 2C Test - Simplified Builders")
@@ -16,7 +16,7 @@ try:
     from src.report_generator import ReportBuilder, ReportConfig
     from src.data_loader import CSVLoader, DataProcessor
     
-    csv_path = Path("data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv")
+    csv_path = Path(__file__).parent.parent / "data" / "TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv"
     
     if not csv_path.exists():
         print("❌ Data file not found")
@@ -63,7 +63,7 @@ try:
     print(f"   ✅ Builder: {type(builder1.column_builder).__name__}")
     
     print("\n4. Generating BU Only report...")
-    output1 = Path("output/bu_only_report.xlsx")
+    output1 = Path(__file__).parent.parent / "output" / "bu_only_report.xlsx"
     
     try:
         builder1.generate_report(df, output1, remark_content)
@@ -92,7 +92,7 @@ try:
     print(f"   ✅ Builder: {type(builder2.column_builder).__name__}")
     
     print("\n7. Generating BU+SG report...")
-    output2 = Path("output/bu_sg_report.xlsx")
+    output2 = Path(__file__).parent.parent / "output" / "bu_sg_report.xlsx"
     
     try:
         builder2.generate_report(df, output2, remark_content)
@@ -121,7 +121,7 @@ try:
     print(f"   ✅ Builder: {type(builder3.column_builder).__name__}")
     
     print("\n10. Generating BU+SG+Product report...")
-    output3 = Path("output/bu_sg_product_report.xlsx")
+    output3 = Path(__file__).parent.parent / "output" / "bu_sg_product_report.xlsx"
     
     try:
         builder3.generate_report(df, output3, remark_content)
