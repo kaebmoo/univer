@@ -264,7 +264,7 @@ class CellFormatter:
         cell.alignment = self.create_alignment(
             horizontal='left',
             vertical='top',
-            wrap_text=True
+            wrap_text=False
         )
     
     def set_column_width(self, ws, column_index: int, width: float):
