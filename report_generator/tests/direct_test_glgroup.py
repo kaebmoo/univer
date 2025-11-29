@@ -12,8 +12,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add project root to path
-project_root = Path(__file__).parent
+# Add project root to path (parent of tests directory)
+project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 print("="*70)
@@ -22,12 +22,11 @@ print("="*70)
 
 try:
     # Import core modules (avoid CLI which imports settings)
-    from config.types import ReportType, DetailLevel, PeriodType
-    from config.report_config import ReportConfig
+    # Use ReportConfig from report_generator (has all required attributes)
+    from src.report_generator import ReportBuilder, ReportConfig, ReportType, DetailLevel, PeriodType
     from src.data_loader import CSVLoader, DataProcessor, DataAggregator
-    from src.report_generator import ReportGenerator
     
-    # Setup paths
+    # Setup paths (project_root is now report_generator directory)
     csv_path = project_root / "data" / "TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv"
     output_dir = project_root / "output"
     output_path = output_dir / "GLGROUP_DIRECT_TEST.xlsx"
@@ -56,13 +55,13 @@ try:
     # Load CSV
     print("\n📥 Loading CSV...")
     loader = CSVLoader()
-    df = loader.load(str(csv_path))
+    df = loader.load_csv(csv_path)  # Changed: load() -> load_csv()
     print(f"   Loaded {len(df)} rows")
     
     # Process data
     print("\n⚙️  Processing data...")
     processor = DataProcessor()
-    processed_df = processor.process(df)
+    processed_df = processor.process_data(df)  # Changed: process() -> process_data()
     print(f"   Processed {len(processed_df)} rows")
     
     # Create aggregator
@@ -71,8 +70,8 @@ try:
     
     # Generate report
     print("\n📝 Generating report...")
-    generator = ReportGenerator(config)
-    generator.generate(processed_df, str(output_path))
+    builder = ReportBuilder(config)
+    builder.generate_report(processed_df, output_path, remark_content="")  # Added remark_content parameter
     
     # Check output
     if output_path.exists():
