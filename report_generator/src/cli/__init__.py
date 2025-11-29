@@ -3,6 +3,6 @@ CLI Module
 Command-line interface for report generation
 """
 
-from .cli import ReportCLI
+from .commands import generate_report, load_remark_file
 
-__all__ = ['ReportCLI']
+__all__ = ['generate_report', 'load_remark_file']

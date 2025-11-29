@@ -340,6 +340,9 @@ class DataWriter:
             return None
 
         col_type = col.col_type
+        
+        # Detect report type
+        is_glgroup = (self.config.report_type.value == "GLGROUP")
 
         if col_type == 'grand_total':
             return row_data.get('GRAND_TOTAL', 0)
@@ -347,24 +350,33 @@ class DataWriter:
         elif col_type == 'bu_total':
             return row_data.get(f'BU_TOTAL_{col.bu}', 0)
 
-        elif col_type == 'sg_total':
-            # SG total = sum of all products in this SG
-            return row_data.get(f'{col.bu}_{col.service_group}', 0)
-        elif col_type == 'sg':
-            # For BU+SG builder
-            return row_data.get(f'{col.bu}_{col.service_group}', 0)
+        elif col_type == 'sg_total' or col_type == 'sg':
+            # GLGROUP uses SG_TOTAL_{bu}_{sg}, COSTTYPE uses {bu}_{sg}
+            if is_glgroup:
+                return row_data.get(f'SG_TOTAL_{col.bu}_{col.service_group}', 0)
+            else:
+                return row_data.get(f'{col.bu}_{col.service_group}', 0)
 
         elif col_type == 'product':
             # Product-level value
-            return self._get_product_value(
-                col,
-                label,
-                is_ratio_row,
-                aggregator,
-                all_row_data,
-                current_main_group_label,
-                previous_label
-            )
+            if is_glgroup:
+                return self._get_product_value_glgroup(
+                    col,
+                    row_data,
+                    label,
+                    is_ratio_row,
+                    all_row_data
+                )
+            else:
+                return self._get_product_value(
+                    col,
+                    label,
+                    is_ratio_row,
+                    aggregator,
+                    all_row_data,
+                    current_main_group_label,
+                    previous_label
+                )
 
         return None
     
@@ -436,6 +448,194 @@ class DataWriter:
             all_row_data[label][product_key_str] = value
             
             return value
+    
+    def _get_product_value_glgroup(
+        self,
+        col: ColumnDef,
+        row_data: Dict[str, float],
+        label: str,
+        is_ratio_row: bool,
+        all_row_data: Dict
+    ) -> Optional[float]:
+        """
+        Get product-level value for GLGROUP reports
+        
+        For regular rows: Get value from row_data using PRODUCT_{bu}_{sg}_{product_key}
+        For calculated rows: Get from row_data (already calculated by aggregator)
+        
+        Args:
+            col: Column definition
+            row_data: Row data from aggregator (for current row)
+            label: Row label
+            is_ratio_row: Whether this is ratio row
+            all_row_data: All row data (for calculated rows)
+        
+        Returns:
+            Product value or None
+        """
+        product_key_str = f"PRODUCT_{col.bu}_{col.service_group}_{col.product_key}"
+        
+        # ALWAYS try to get from row_data first (works for both regular and calculated rows)
+        # Because calculate_summary_row_glgroup() already computed product-level values
+        if row_data and product_key_str in row_data:
+            value = row_data.get(product_key_str, 0)
+            
+            # Store for later use
+            if label not in all_row_data:
+                all_row_data[label] = {}
+            all_row_data[label][product_key_str] = value
+            
+            return value
+        
+        # Fallback: Check if this is a calculated row that needs recalculation
+        from config.data_mapping_glgroup import is_calculated_row_glgroup
+        
+        if is_calculated_row_glgroup(label):
+            # For calculated rows that don't have value in row_data,
+            # try to calculate from component rows
+            return self._calculate_product_value_glgroup(
+                col, label, all_row_data
+            )
+        else:
+            # Regular data row - get from row_data (default 0 if not found)
+            value = row_data.get(product_key_str, 0) if row_data else 0
+            
+            # Store product-level value for calculated rows
+            if label not in all_row_data:
+                all_row_data[label] = {}
+            all_row_data[label][product_key_str] = value
+            
+            return value
+    
+    def _calculate_product_value_glgroup(
+        self,
+        col: ColumnDef,
+        label: str,
+        all_row_data: Dict
+    ) -> Optional[float]:
+        """
+        Calculate product-level value for GLGROUP calculated rows
+        
+        Args:
+            col: Column definition
+            label: Row label (calculated row)
+            all_row_data: All row data
+        
+        Returns:
+            Calculated value or 0
+        """
+        from config.row_order_glgroup import ROW_ORDER_GLGROUP
+        
+        product_key_str = f"PRODUCT_{col.bu}_{col.service_group}_{col.product_key}"
+        
+        # Find formula for this row
+        formula = None
+        for level, row_label, is_calc, calc_formula, is_bold in ROW_ORDER_GLGROUP:
+            if row_label == label and is_calc:
+                formula = calc_formula
+                break
+        
+        if not formula:
+            return 0
+        
+        if formula == "sum_group_1":
+            # Sum all revenue items
+            revenue_labels = [
+                "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน",
+                "- รายได้กลุ่มธุรกิจโทรศัพท์ประจำที่และบรอดแบนด์",
+                "- รายได้กลุ่มธุรกิจโทรศัพท์เคลื่อนที่",
+                "- รายได้กลุ่มธุรกิจวงจรระหว่างประเทศ",
+                "- รายได้กลุ่มธุรกิจดิจิทัล",
+                "- รายได้กลุ่มธุรกิจ ICT Solution Business",
+                "- รายได้จากการให้บริการอื่นที่ไม่ใช่โทรคมนาคม",
+                "- รายได้จากการขาย",
+                "- ผลตอบแทนทางการเงินและรายได้อื่น"
+            ]
+            return self._sum_product_values(all_row_data, revenue_labels, product_key_str)
+        
+        elif formula == "sum_group_2":
+            # Sum all expense items
+            expense_labels = [
+                "- ค่าใช้จ่ายตอบแทนแรงงาน", "- ค่าสวัสดิการ",
+                "- ค่าใช้จ่ายพัฒนาและฝึกอบรมบุคลากร",
+                "- ค่าซ่อมแซมและบำรุงรักษาและวัสดุใช้ไป",
+                "- ค่าสาธารณูปโภค",
+                "- ค่าใช้จ่ายการตลาดและส่งเสริมการขาย",
+                "- ค่าใช้จ่ายเผยแพร่ประชาสัมพันธ์",
+                "- ค่าใช้จ่ายเกี่ยวกับการกำกับดูแลของ กสทช.",
+                "- ค่าส่วนแบ่งบริการโทรคมนาคม",
+                "- ค่าใช้จ่ายบริการโทรคมนาคม",
+                "- ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์",
+                "- ค่าตัดจำหน่ายสิทธิการใช้ตามสัญญาเช่า",
+                "- ค่าเช่าและค่าใช้สินทรัพย์", "- ต้นทุนขาย",
+                "- ค่าใช้จ่ายบริการอื่น",
+                "- ค่าใช้จ่ายดำเนินงานอื่น", "- ค่าใช้จ่ายอื่น",
+                "- ต้นทุนทางการเงิน-ด้านการดำเนินงาน",
+                "- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน"
+            ]
+            return self._sum_product_values(all_row_data, expense_labels, product_key_str)
+        
+        elif formula == "sum_service_revenue":
+            # Sum service revenue only (exclude finance income)
+            service_labels = [
+                "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน",
+                "- รายได้กลุ่มธุรกิจโทรศัพท์ประจำที่และบรอดแบนด์",
+                "- รายได้กลุ่มธุรกิจโทรศัพท์เคลื่อนที่",
+                "- รายได้กลุ่มธุรกิจวงจรระหว่างประเทศ",
+                "- รายได้กลุ่มธุรกิจดิจิทัล",
+                "- รายได้กลุ่มธุรกิจ ICT Solution Business",
+                "- รายได้จากการให้บริการอื่นที่ไม่ใช่โทรคมนาคม",
+                "- รายได้จากการขาย"
+            ]
+            return self._sum_product_values(all_row_data, service_labels, product_key_str)
+        
+        elif formula == "total_revenue":
+            # Same as sum_group_1
+            return (all_row_data.get("1 รวมรายได้") or {}).get(product_key_str, 0)
+        
+        elif formula == "total_expense_no_finance":
+            # Total expense minus finance costs
+            total = (all_row_data.get("2 รวมค่าใช้จ่าย") or {}).get(product_key_str, 0)
+            fin_op = (all_row_data.get("- ต้นทุนทางการเงิน-ด้านการดำเนินงาน") or {}).get(product_key_str, 0)
+            fin_fund = (all_row_data.get("- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน") or {}).get(product_key_str, 0)
+            return total - fin_op - fin_fund
+        
+        elif formula == "total_expense_with_finance":
+            return (all_row_data.get("2 รวมค่าใช้จ่าย") or {}).get(product_key_str, 0)
+        
+        elif formula == "ebitda":
+            # EBITDA = EBT + Depreciation + Amortization + Finance costs
+            ebt = (all_row_data.get("3.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (1)-(2)") or {}).get(product_key_str, 0)
+            dep = (all_row_data.get("- ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์") or {}).get(product_key_str, 0)
+            amort = (all_row_data.get("- ค่าตัดจำหน่ายสิทธิการใช้ตามสัญญาเช่า") or {}).get(product_key_str, 0)
+            fin_op = (all_row_data.get("- ต้นทุนทางการเงิน-ด้านการดำเนินงาน") or {}).get(product_key_str, 0)
+            fin_fund = (all_row_data.get("- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน") or {}).get(product_key_str, 0)
+            return ebt + dep + amort + fin_op + fin_fund
+        
+        return 0
+    
+    def _sum_product_values(
+        self,
+        all_row_data: Dict,
+        labels: List[str],
+        product_key_str: str
+    ) -> float:
+        """
+        Sum product values from multiple rows
+        
+        Args:
+            all_row_data: All row data
+            labels: Row labels to sum
+            product_key_str: Product key string
+        
+        Returns:
+            Sum of values
+        """
+        total = 0
+        for label in labels:
+            row_data = all_row_data.get(label) or {}
+            total += row_data.get(product_key_str, 0)
+        return total
     
     def _get_ratio_type(self, previous_label: str) -> str:
         """

@@ -682,26 +682,42 @@ class DataAggregator:
             service_group_dict: Dict mapping BU to service groups
 
         Returns:
-            Dict with aggregated values
+            Dict with aggregated values at GRAND_TOTAL, BU_TOTAL, SG_TOTAL, and PRODUCT levels
         """
         from config.data_mapping_glgroup import get_group_sub_group_glgroup
 
         result = {}
+        print(f"  _sum_labels_from_db_glgroup: Processing {len(labels)} labels")
 
         for label in labels:
-            # Get GROUP/SUB_GROUP for this label
-            group, sub_group = get_group_sub_group_glgroup(label)
-
-            if not group:
+            # Get GROUP/SUB_GROUP for this label (can be 2-tuple or 3-tuple)
+            mapping = get_group_sub_group_glgroup(label)
+            
+            if not mapping or mapping[0] is None:
+                print(f"    ✗ No mapping for label: '{label}'")
+                continue
+            
+            group = mapping[0]
+            sub_group = mapping[1] if len(mapping) > 1 else None
+            
+            # Skip FORMULA rows
+            if group == "FORMULA":
+                print(f"    ✗ Skipping FORMULA row: '{label}'")
                 continue
 
             # Query from database
             row_data = self.get_row_data_glgroup(label, bu_list, service_group_dict)
+            print(f"    ✓ Label '{label}': got {len(row_data)} keys")
 
             # Sum into result
             for key, value in row_data.items():
                 result[key] = result.get(key, 0) + value
 
+        print(f"  _sum_labels_from_db_glgroup: Result has {len(result)} keys")
+        if result:
+            sample_keys = list(result.keys())[:5]
+            print(f"    Sample keys: {sample_keys}")
+        
         return result
 
         # Main profit/loss calculations
