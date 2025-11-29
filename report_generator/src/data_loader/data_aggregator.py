@@ -561,7 +561,8 @@ class DataAggregator:
                 "     - ผลตอบแทนทางการเงิน",
                 "     - รายได้อื่น"
             ]
-            return self._sum_rows_glgroup(all_row_data, revenue_labels)
+            # Query from database directly (this calculated row appears before detail rows)
+            return self._sum_labels_from_db_glgroup(revenue_labels, bu_list, service_group_dict)
         
         elif formula == "sum_group_2":
             expense_labels = [
@@ -582,7 +583,8 @@ class DataAggregator:
                 "- ต้นทุนทางการเงิน-ด้านการดำเนินงาน",
                 "- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน"
             ]
-            return self._sum_rows_glgroup(all_row_data, expense_labels)
+            # Query from database directly (this calculated row appears before detail rows)
+            return self._sum_labels_from_db_glgroup(expense_labels, bu_list, service_group_dict)
         
         elif formula == "sum_service_revenue":
             service_labels = [
@@ -633,7 +635,42 @@ class DataAggregator:
                     result[key] = result.get(key, 0) + value
         return result
 
+    def _sum_labels_from_db_glgroup(
+        self,
+        labels: List[str],
+        bu_list: List[str],
+        service_group_dict: Dict[str, List[str]]
+    ) -> Dict[str, float]:
+        """
+        Sum multiple labels by querying database directly (for calculated rows that appear before detail rows)
+
+        Args:
+            labels: List of row labels to sum
+            bu_list: List of BUs
+            service_group_dict: Dict mapping BU to service groups
+
+        Returns:
+            Dict with aggregated values
+        """
+        from config.data_mapping_glgroup import get_group_sub_group_glgroup
+
         result = {}
+
+        for label in labels:
+            # Get GROUP/SUB_GROUP for this label
+            group, sub_group = get_group_sub_group_glgroup(label)
+
+            if not group:
+                continue
+
+            # Query from database
+            row_data = self.get_row_data_glgroup(label, bu_list, service_group_dict)
+
+            # Sum into result
+            for key, value in row_data.items():
+                result[key] = result.get(key, 0) + value
+
+        return result
 
         # Main profit/loss calculations
         if calc_type == "gross_profit":
