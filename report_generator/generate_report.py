@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.data_loader import CSVLoader, DataProcessor
 from src.report_generator import ReportBuilder, ReportConfig
+from config.settings import settings
 
 
 def find_csv_file(data_dir: Path, report_type: str, period_type: str) -> Path:
@@ -55,21 +56,60 @@ def find_csv_file(data_dir: Path, report_type: str, period_type: str) -> Path:
     return files[0]
 
 
-def load_remark_file(csv_path: Path, period_type: str) -> str:
-    """Load remark file if exists"""
-    remark_file = csv_path.parent / f"remark_{period_type}.txt"
+def load_remark_file(csv_path: Path, period_type: str = None) -> str:
+    """
+    Load remark file if exists
+    
+    Strategy:
+    1. Try to find remark file matching CSV date suffix (e.g., remark_20251031.txt)
+    2. If not found, try remark_*.txt pattern and use the most recent one
+    3. Return empty string if no remark file exists
+    
+    Args:
+        csv_path: Path to CSV file (used to extract date suffix and directory)
+        period_type: Period type (MTH/YTD) - not currently used but kept for compatibility
+    
+    Returns:
+        Remark content as string, or empty string if not found
+    """
+    data_dir = csv_path.parent
+    
+    # Strategy 1: Extract date suffix from CSV filename
+    # CSV filename format: TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv
+    csv_stem = csv_path.stem  # TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031
+    parts = csv_stem.split('_')
+    date_suffix = parts[-1] if parts else None
+    
+    if date_suffix and date_suffix.isdigit():
+        remark_file = data_dir / f"remark_{date_suffix}.txt"
+        if remark_file.exists():
+            return _read_remark_file(remark_file)
+    
+    # Strategy 2: Find any remark_*.txt file (use most recent)
+    remark_files = sorted(data_dir.glob("remark_*.txt"), reverse=True)
+    if remark_files:
+        return _read_remark_file(remark_files[0])
+    
+    return ""
 
-    if not remark_file.exists():
-        return ""
 
-    # Try different encodings
+def _read_remark_file(remark_file: Path) -> str:
+    """
+    Read remark file with multiple encoding fallbacks
+    
+    Args:
+        remark_file: Path to remark file
+    
+    Returns:
+        File content as string
+    """
     for encoding in ['utf-8', 'tis-620', 'cp874', 'windows-874']:
         try:
             with open(remark_file, 'r', encoding=encoding) as f:
                 return f.read()
-        except:
+        except (UnicodeDecodeError, UnicodeError):
             continue
-
+    
     return ""
 
 
@@ -200,9 +240,12 @@ def main():
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 6. Load remark file
-        remark_content = load_remark_file(csv_path, args.period)
+        remark_content = load_remark_file(csv_path)
         if remark_content:
-            print(f"\n📝 Loaded remarks from: remark_{args.period}.txt")
+            # Extract date suffix from CSV filename for display
+            csv_stem = csv_path.stem
+            date_suffix = csv_stem.split('_')[-1] if csv_stem else ''
+            print(f"\n📝 Loaded remarks from: remark_{date_suffix}.txt")
 
         # 7. Generate report
         print(f"\n🔨 Generating Excel report...")

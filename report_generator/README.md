@@ -1,366 +1,378 @@
-# Profit and Loss Report Generator
-
-ระบบสร้างรายงาน P&L (Profit & Loss) แบบ Excel จากไฟล์ CSV โดยรองรับการทำงานทั้งแบบ Command Line และ Web Application
-
-## คุณสมบัติ
-
-### 📊 Core Features
-- สร้างรายงาน P&L Excel ที่มีการจัดรูปแบบครบถ้วนตามข้อกำหนด
-- รองรับไฟล์ CSV ที่ encode เป็น Thai (TIS-620, Windows-874)
-- รองรับรายงานทั้ง 2 มิติ:
-  - มิติประเภทต้นทุน (COSTTYPE)
-  - มิติหมวดบัญชี (GLGROUP)
-- รองรับทั้งรายงานรายเดือน (MTH) และสะสม (YTD)
-
-### 🎨 Excel Formatting
-- Font: TH Sarabun New (18pt)
-- สีพื้นหลังตามกลุ่มธุรกิจ (8 กลุ่ม)
-- สีสำหรับแต่ละ section
-- รูปแบบตัวเลข:
-  - บวก: `1,234.00`
-  - ลบ: `(1,234.00)` สีแดง
-  - ศูนย์: ค่าว่าง
-- ตีเส้นตาราง
-- Freeze panes
-
-### 📈 Financial Calculations
-- กำไรขั้นต้น (Gross Profit)
-- EBITDA
-- กำไรก่อนหักภาษี (EBT)
-- กำไรสุทธิ (Net Profit)
-- สัดส่วนต้นทุนบริการต่อรายได้
-- จัดการ division by zero
-
-### 🌐 Web Application
-- Authentication ด้วย Email + OTP
-- Login ได้เฉพาะ email ตาม domain ที่กำหนด
-- OTP 6 หลัก (อายุ 5 นาที)
-- Development mode: แสดง OTP บนหน้าจอ
-- Production mode: ส่ง OTP ทาง email
-- JWT token สำหรับ session management
-
-### 📧 Email Features
-- ส่งรายงานทาง email (SMTP SSL)
-- ระบุผู้รับได้หลายคน
-- แก้ไข subject และ body ได้
-- แนบไฟล์รายงาน
-
-### 💻 Command Line Interface
-- สร้างรายงานผ่าน command line
-- Auto-detect report type
-- รองรับการระบุวันที่
-
-## โครงสร้างโปรเจกต์
-
-```
-report_generator/
-├── config/                 # Configuration files
-│   ├── settings.py        # Settings และ configuration
-│   ├── row_order.py       # COSTTYPE row structure
-│   ├── row_order_glgroup.py  # GLGROUP row structure
-│   ├── data_mapping.py    # COSTTYPE data mapping
-│   └── data_mapping_glgroup.py  # GLGROUP data mapping
-├── src/
-│   ├── data_loader/       # Data loading modules
-│   │   ├── csv_loader.py  # CSV file loader (Thai encoding)
-│   │   ├── data_processor.py  # Data processing
-│   │   └── data_aggregator.py # Data aggregation
-│   ├── report_generator/  # Modular report generation (NEW!)
-│   │   ├── core/          # Core components
-│   │   │   ├── config.py  # Report configuration
-│   │   │   └── report_builder.py  # Main orchestrator
-│   │   ├── columns/       # Column builders (Strategy pattern)
-│   │   │   ├── bu_only_builder.py
-│   │   │   ├── bu_sg_builder.py
-│   │   │   └── bu_sg_product_builder.py
-│   │   ├── rows/          # Row builders
-│   │   ├── writers/       # Excel writers
-│   │   │   ├── header_writer.py
-│   │   │   ├── column_header_writer.py
-│   │   │   ├── data_writer.py
-│   │   │   └── remark_writer.py
-│   │   ├── formatters/    # Cell formatting
-│   │   └── calculators/   # Calculations
-│   ├── cli/               # Command-line interface
-│   │   └── cli.py
-│   └── web/               # Web application
-│       ├── main.py        # FastAPI app
-│       ├── routes/        # API routes
-│       ├── models/        # Pydantic models
-│       └── utils/         # Utilities (OTP, Email, JWT)
-├── tests/                 # All test files (NEW location!)
-│   ├── test_*.py          # Test suites
-│   ├── check_*.py         # Data validation scripts
-│   └── run_all_tests.py   # Master test runner
-├── docs/                  # Documentation (NEW location!)
-│   ├── USAGE.md           # Usage guide
-│   ├── TESTING_GUIDE.md   # Testing procedures
-│   ├── REFACTOR_PLAN.md   # Refactoring documentation
-│   └── *.md               # Other documentation files
-├── data/                  # Data files (CSV)
-├── output/                # Generated reports
-├── archive/               # Archived old implementations
-├── generate_report.py     # ⭐ Simple CLI entry point (RECOMMENDED!)
-├── main.py                # Main entry point (CLI or Web mode)
-├── main_generator.py      # Standalone generator (legacy)
-├── requirements.txt       # Python dependencies
-├── .env.example          # Environment variables template
-└── README.md             # This file
-```
-
-## Installation
-
-### 1. Clone repository
-```bash
-cd /Users/seal/Documents/GitHub/univer/report_generator
-```
-
-### 2. Create virtual environment
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-```
-
-### 3. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure environment
-```bash
-cp .env.example .env
-# Edit .env and configure your settings
-```
-
-## Usage
-
-### ⭐ Simple CLI (แนะนำ - Recommended!)
-
-โปรแกรม `generate_report.py` เป็นวิธีที่ง่ายที่สุดในการสร้างรายงาน Excel
-
-#### Quick start (ใช้ค่า default)
-```bash
-python generate_report.py
-```
-
-#### ระบุประเภทรายงานและระยะเวลา
-```bash
-# COSTTYPE รายเดือน
-python generate_report.py --report-type COSTTYPE --period MTH
-
-# GLGROUP สะสม
-python generate_report.py --report-type GLGROUP --period YTD
-```
-
-#### ระบุระดับความละเอียด
-```bash
-# แสดงเฉพาะ BU Total
-python generate_report.py --detail-level BU_ONLY
-
-# แสดง BU + Service Group Total
-python generate_report.py --detail-level BU_SG
-
-# แสดงครบทุกระดับ (BU + SG + Products) - ค่า default
-python generate_report.py --detail-level BU_SG_PRODUCT
-```
-
-#### ระบุไฟล์ข้อมูลเอง
-```bash
-python generate_report.py --csv-file data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv
-```
-
-#### Full options
-```bash
-python generate_report.py \\
-    --csv-file data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv \\
-    --output output/my_report.xlsx \\
-    --report-type COSTTYPE \\
-    --period MTH \\
-    --detail-level BU_SG_PRODUCT \\
-    --verbose
-```
-
-#### ดูตัวเลือกทั้งหมด
-```bash
-python generate_report.py --help
-```
-
-### Advanced CLI (แบบเดิม)
-
-#### Basic usage (auto-detect)
-```bash
-python -m src.cli.cli --data-dir ../data --output-dir ./output
-```
-
-#### Generate specific report type
-```bash
-python -m src.cli.cli --data-dir ../data --output-dir ./output --type COSTTYPE
-```
-
-#### Generate for specific date
-```bash
-python -m src.cli.cli --data-dir ../data --output-dir ./output --date 20251031
-```
-
-### Web Application
-
-#### Start server
-```bash
-python -m src.web.main
-# หรือ
-uvicorn src.web.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### API Endpoints
-
-**Authentication:**
-- `POST /api/auth/request-otp` - Request OTP for email
-- `POST /api/auth/verify-otp` - Verify OTP and get token
-- `GET /api/auth/me` - Get current user info
-
-**Report:**
-- `GET /api/report/files` - List available data files
-- `POST /api/report/generate` - Generate report
-- `GET /api/report/download/{filename}` - Download report
-- `POST /api/report/send-email` - Send report via email
-
-**Documentation:**
-- Swagger UI: http://localhost:8000/api/docs
-- ReDoc: http://localhost:8000/api/redoc
-
-## Configuration
-
-### Email Setup (Gmail example)
-
-1. Enable 2-factor authentication in your Google account
-2. Generate App Password: https://myaccount.google.com/apppasswords
-3. Add to `.env`:
-```
-SMTP_USERNAME=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-```
-
-### Allowed Email Domains
-
-Edit `.env`:
-```
-ALLOWED_EMAIL_DOMAINS=company.com,company.co.th,example.com
-```
-
-## Data Files
-
-ระบบรองรับไฟล์ CSV ดังต่อไปนี้:
-
-- `TRN_PL_COSTTYPE_NT_MTH_TABLE_YYYYMMDD.csv` - มิติประเภทต้นทุน รายเดือน
-- `TRN_PL_COSTTYPE_NT_YTD_TABLE_YYYYMMDD.csv` - มิติประเภทต้นทุน สะสม
-- `TRN_PL_GLGROUP_NT_MTH_TABLE_YYYYMMDD.csv` - มิติหมวดบัญชี รายเดือน
-- `TRN_PL_GLGROUP_NT_YTD_TABLE_YYYYMMDD.csv` - มิติหมวดบัญชี สะสม
-- `remark_YYYYMMDD.txt` - หมายเหตุประกอบรายงาน
-
-**Note:** ไฟล์ CSV ต้อง encode เป็น TIS-620 หรือ Windows-874
-
-## Development
-
-### Run tests
-
-#### Quick test (แนะนำ)
-```bash
-# Run single test
-cd tests
-python test_1_imports.py
-
-# Run report generation test
-python test_2_generate.py
-
-# Run all tests
-python run_all_tests.py
-```
-
-#### Using pytest
-```bash
-pytest tests/
-```
-
-### Test files ที่สำคัญ
-- `tests/test_1_imports.py` - ทดสอบการ import modules
-- `tests/test_2_generate.py` - ทดสอบการสร้างรายงาน
-- `tests/test_3_compare.py` - เปรียบเทียบ old vs new implementation
-- `tests/test_all_reports.py` - สร้างรายงานทุกแบบ
-- `tests/test_phase2c.py` - ทดสอบระดับความละเอียดต่างๆ
-- `tests/test_glgroup.py` - ทดสอบรายงาน GLGROUP
-- `tests/test_ytd_reports.py` - ทดสอบรายงาน YTD
-
-### Run with auto-reload (development)
-```bash
-uvicorn src.web.main:app --reload
-```
-
-### Enable debug mode
-Edit `.env`:
-```
-DEBUG=True
-APP_ENV=development
-```
-
-## Documentation
-
-เอกสารเพิ่มเติมอยู่ในโฟลเดอร์ `docs/`:
-
-- 📖 [`docs/USAGE.md`](docs/USAGE.md) - คู่มือการใช้งานแบบละเอียด
-- 🧪 [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) - คู่มือการทดสอบ
-- 🏗️ [`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md) - แผน refactoring
-- 📋 [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) - สถานะการพัฒนา
-- 🔄 [`docs/REPORT_GENERATOR_WORKFLOW.md`](docs/REPORT_GENERATOR_WORKFLOW.md) - Workflow การสร้างรายงาน
-- ✅ [`docs/CHECKLIST.md`](docs/CHECKLIST.md) - Development checklist
-
-### เอกสาร GLGROUP
-- [`docs/GLGROUP_IMPLEMENTATION_GUIDE.md`](docs/GLGROUP_IMPLEMENTATION_GUIDE.md)
-- [`docs/GLGROUP_IMPLEMENTATION_COMPLETE.md`](docs/GLGROUP_IMPLEMENTATION_COMPLETE.md)
-- [`docs/GLGROUP_TODO.md`](docs/GLGROUP_TODO.md)
-
-### เอกสาร Phase Development
-- [`docs/PHASE1_PROGRESS.md`](docs/PHASE1_PROGRESS.md)
-- [`docs/PHASE2A_COMPLETE.md`](docs/PHASE2A_COMPLETE.md)
-- [`docs/PHASE2B_COMPLETE.md`](docs/PHASE2B_COMPLETE.md)
-- [`docs/PHASE2C_TODO.md`](docs/PHASE2C_TODO.md)
-
-## Troubleshooting
-
-### CSV Encoding Issues
-ถ้าอ่านไฟล์ CSV ไม่ได้ ให้ลองเปลี่ยน encoding:
-```bash
-python -m src.cli.cli --data-dir ../data --output-dir ./output --encoding windows-874
-```
-
-### Email Not Sending
-1. ตรวจสอบ SMTP credentials ใน `.env`
-2. ตรวจสอบว่า App Password ถูกต้อง (สำหรับ Gmail)
-3. ตรวจสอบ firewall/network settings
-
-### OTP Not Received
-- Development mode: OTP จะแสดงใน API response
-- Production mode: ตรวจสอบ spam folder
-
-## License
-
-MIT License
-
-## Support
-
-For issues and questions, please contact the development team.
+# Univer Report Generator
+
+ระบบสร้างรายงาน P&L Excel สำหรับ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน)
+
+## 📋 สารบัญ
+
+- [คุณสมบัติ](#-คุณสมบัติ)
+- [โครงสร้างโปรเจค](#-โครงสร้างโปรเจค)
+- [การติดตั้ง](#-การติดตั้ง)
+- [การใช้งาน](#-การใช้งาน)
+- [การกำหนดค่า](#-การกำหนดค่า)
+- [ไฟล์ข้อมูล](#-ไฟล์ข้อมูล)
+- [การปรับแต่ง](#-การปรับแต่ง)
+- [สถานะของไฟล์](#-สถานะของไฟล์)
 
 ---
 
-**Version:** 2.0.0
-**Last Updated:** 2025-11-28
+## ✨ คุณสมบัติ
 
-## Changelog
+### รองรับ 2 มิติรายงาน
+- **COSTTYPE** - มิติประเภทต้นทุน
+- **GLGROUP** - มิติหมวดบัญชี
 
-### Version 2.0.0 (2025-11-28)
-- 🗂️ Reorganized project structure
-  - Moved all test files to `tests/` directory
-  - Moved all documentation to `docs/` directory
-- ⭐ Added `generate_report.py` - Simple CLI entry point (recommended)
-- 📊 Support for 3 detail levels: BU_ONLY, BU_SG, BU_SG_PRODUCT
-- 🏗️ Modular architecture with Strategy pattern
-- 📖 Updated documentation structure
+### รองรับ 2 ช่วงเวลา
+- **MTH** - รายเดือน (Monthly)
+- **YTD** - สะสมตั้งแต่ต้นปี (Year-to-Date)
+
+### รองรับ 3 ระดับรายละเอียด
+- **BU_ONLY** - กลุ่มธุรกิจเท่านั้น
+- **BU_SG** - กลุ่มธุรกิจ + กลุ่มบริการ
+- **BU_SG_PRODUCT** - กลุ่มธุรกิจ + กลุ่มบริการ + รายบริการ (default)
+
+---
+
+## 📁 โครงสร้างโปรเจค
+
+```
+report_generator/
+├── generate_report.py      # ✅ Entry point หลัก (ใช้งานจริง)
+├── main.py                 # ⚠️ สำหรับ CLI/Web mode (ต้อง refactor)
+├── main_generator.py       # ❌ Legacy code (ไม่ใช้แล้ว)
+├── .env                    # การตั้งค่าแบบ environment
+├── requirements.txt        # Dependencies
+│
+├── config/                 # ⚙️ Configuration files
+│   ├── settings.py         # ✅ ตั้งค่าหลัก (อ่านจาก .env)
+│   ├── data_mapping.py     # ✅ COSTTYPE: Label → (GROUP, SUB_GROUP)
+│   ├── data_mapping_glgroup.py  # ✅ GLGROUP: Label → (GROUP, SUB_GROUP)
+│   ├── row_order.py        # ✅ COSTTYPE: ลำดับแถวและ formulas
+│   ├── row_order_glgroup.py    # ✅ GLGROUP: ลำดับแถวและ formulas
+│   ├── report_config.py    # ⚠️ Legacy (ใช้ core/config.py แทน)
+│   └── types.py            # ✅ Enum definitions
+│
+├── data/                   # 📊 ข้อมูล Input
+│   ├── TRN_PL_COSTTYPE_NT_MTH_TABLE_*.csv
+│   ├── TRN_PL_COSTTYPE_NT_YTD_TABLE_*.csv
+│   ├── TRN_PL_GLGROUP_NT_MTH_TABLE_*.csv
+│   ├── TRN_PL_GLGROUP_NT_YTD_TABLE_*.csv
+│   └── remark_YYYYMMDD.txt # หมายเหตุ (ชื่อตรงกับวันที่ CSV)
+│
+├── output/                 # 📤 ไฟล์ Output Excel
+│
+├── src/
+│   ├── data_loader/        # ✅ โหลดและประมวลผลข้อมูล
+│   │   ├── csv_loader.py       # อ่าน CSV
+│   │   ├── data_processor.py   # ประมวลผล DataFrame
+│   │   └── data_aggregator.py  # รวมค่าและคำนวณ
+│   │
+│   ├── report_generator/   # ✅ สร้างรายงาน Excel
+│   │   ├── core/
+│   │   │   ├── config.py       # ReportConfig, Enums
+│   │   │   └── report_builder.py  # ตัวสร้างรายงานหลัก
+│   │   ├── columns/            # สร้างโครงสร้างคอลัมน์
+│   │   ├── rows/               # สร้างโครงสร้างแถว
+│   │   ├── writers/            # เขียนลง Excel
+│   │   └── formatters/         # จัดรูปแบบ cells
+│   │
+│   ├── cli/               # ⚠️ ต้อง refactor
+│   │   ├── cli.py             # ❌ ใช้ ExcelGenerator เก่า
+│   │   └── commands.py        # ⚠️ load_remark_file มี bug
+│   │
+│   ├── web/               # 🚧 ยังไม่ implement
+│   └── calculators/       # 🚧 placeholder
+│
+├── archive/               # 📦 Code เก่าที่เก็บไว้
+└── backup_*/              # 💾 Backups
+```
+
+---
+
+## 🚀 การติดตั้ง
+
+### 1. Clone และติดตั้ง dependencies
+
+```bash
+cd report_generator
+pip install -r requirements.txt
+```
+
+### 2. ตั้งค่า .env (optional)
+
+คัดลอก `.env.example` เป็น `.env` และปรับแต่งตามต้องการ:
+
+```bash
+cp .env.example .env
+```
+
+---
+
+## 💻 การใช้งาน
+
+### คำสั่งพื้นฐาน
+
+```bash
+# รายงาน COSTTYPE MTH (default)
+python generate_report.py
+
+# รายงาน GLGROUP YTD
+python generate_report.py --report-type GLGROUP --period YTD
+
+# ระบุระดับรายละเอียด
+python generate_report.py --detail-level BU_SG
+
+# ระบุไฟล์ CSV โดยตรง
+python generate_report.py --csv-file data/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv
+```
+
+### Options ทั้งหมด
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--csv-file` | | ไฟล์ CSV (auto-detect ถ้าไม่ระบุ) | - |
+| `--data-dir` | | Directory ของข้อมูล | `data/` |
+| `--output` | `-o` | ไฟล์ Output | auto-generated |
+| `--output-dir` | | Directory สำหรับ output | `output/` |
+| `--report-type` | `-t` | COSTTYPE หรือ GLGROUP | COSTTYPE |
+| `--period` | `-p` | MTH หรือ YTD | MTH |
+| `--detail-level` | `-d` | BU_ONLY, BU_SG, BU_SG_PRODUCT | BU_SG_PRODUCT |
+| `--encoding` | | CSV encoding | tis-620 |
+| `--verbose` | `-v` | แสดงรายละเอียด | False |
+
+---
+
+## ⚙️ การกำหนดค่า
+
+### ไฟล์ .env
+
+```ini
+# === Application ===
+APP_NAME="Univer Report Generator"
+APP_ENV=development
+DEBUG=True
+
+# === Data Paths ===
+DATA_DIR=data           # Directory ของไฟล์ CSV
+OUTPUT_DIR=output       # Directory สำหรับ output
+
+# === CSV Encoding ===
+CSV_ENCODING=tis-620    # หรือ windows-874, cp874
+
+# === Excel Formatting ===
+EXCEL_FONT_NAME=TH Sarabun New
+EXCEL_FONT_SIZE=18
+
+# === Web Server (ถ้าใช้) ===
+WEB_HOST=0.0.0.0
+WEB_PORT=9000
+```
+
+### สิ่งที่อ่านจาก .env
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATA_DIR` | Directory ของไฟล์ CSV | `../data` |
+| `OUTPUT_DIR` | Directory สำหรับ output | `./output` |
+| `CSV_ENCODING` | Encoding ของไฟล์ CSV | `tis-620` |
+| `EXCEL_FONT_NAME` | ฟอนต์ใน Excel | `TH Sarabun New` |
+| `EXCEL_FONT_SIZE` | ขนาดฟอนต์ | `18` |
+
+---
+
+## 📊 ไฟล์ข้อมูล
+
+### CSV Files (Input)
+
+ไฟล์ CSV ต้องอยู่ใน `data/` directory โดยมีรูปแบบชื่อ:
+
+```
+TRN_PL_{REPORT_TYPE}_NT_{PERIOD}_TABLE_{YYYYMMDD}.csv
+
+ตัวอย่าง:
+- TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv
+- TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv
+- TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv
+- TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv
+```
+
+### Remark File
+
+ไฟล์หมายเหตุต้องอยู่ใน `data/` directory โดยมีรูปแบบชื่อ:
+
+```
+remark_{YYYYMMDD}.txt
+
+ตัวอย่าง:
+- remark_20251031.txt
+```
+
+**สำคัญ:** วันที่ใน remark file ต้องตรงกับวันที่ใน CSV file
+
+**Encoding:** รองรับ UTF-8, TIS-620, CP874, Windows-874
+
+---
+
+## 🔧 การปรับแต่ง
+
+### 1. เพิ่ม/แก้ไขแถวรายงาน
+
+#### COSTTYPE: แก้ไข `config/row_order.py`
+
+```python
+ROW_ORDER = [
+    # (level, label, is_calculated, formula, is_bold)
+    (0, "1.รายได้", False, None, True),
+    (1, "รายได้บริการ", True, "sum_service_revenue", False),
+    (2, "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน", False, None, False),
+    ...
+]
+```
+
+#### GLGROUP: แก้ไข `config/row_order_glgroup.py`
+
+```python
+ROW_ORDER_GLGROUP = [
+    # (level, label, is_calculated, formula, is_bold)
+    (0, "1 รวมรายได้", True, "sum_group_1", True),
+    (1, "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน", False, None, False),
+    ...
+]
+```
+
+### 2. Mapping Labels กับ Database
+
+#### COSTTYPE: แก้ไข `config/data_mapping.py`
+
+```python
+DATA_MAPPING = {
+    "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน": ("01.รายได้", "01.รายได้จากการให้บริการ"),
+    ...
+}
+
+# Context-dependent mappings
+CONTEXT_MAPPING = {
+    ("label", "parent_context"): ("GROUP", "SUB_GROUP"),
+    ...
+}
+```
+
+#### GLGROUP: แก้ไข `config/data_mapping_glgroup.py`
+
+```python
+DATA_MAPPING_GLGROUP = {
+    "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน": ("01.รายได้", "01.รายได้จากการให้บริการ"),
+    # บางรายการเป็น 3-tuple:
+    "     - ผลตอบแทนทางการเงิน": ("01.รายได้", "10.ผลตอบแทนทางการเงิน", "8.1 ผลตอบแทนทางการเงิน"),
+    ...
+}
+```
+
+### 3. สีของกลุ่มธุรกิจ
+
+แก้ไขใน `config/settings.py` หรือ `src/report_generator/core/config.py`:
+
+```python
+bu_colors: Dict[str, str] = {
+    '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE': 'E2EFDA',
+    '2.กลุ่มธุรกิจ INTERNATIONAL': 'DDEBF7',
+    ...
+}
+```
+
+### 4. Formulas สำหรับ Calculated Rows
+
+Formulas ที่รองรับ (กำหนดใน `row_order*.py`):
+
+**COSTTYPE:**
+- `sum_service_revenue` - รวมรายได้บริการ
+- `sum_total_revenue` - รวมรายได้ทั้งหมด
+- `sum_total_cost` - รวมค่าใช้จ่ายทั้งหมด
+- `sum_service_cost_*` - รวมต้นทุนบริการต่างๆ
+- `subtract_*` - ผลต่าง (รายได้ - ค่าใช้จ่าย)
+- `ebitda` - EBITDA
+
+**GLGROUP:**
+- `sum_group_1` - รวมรายได้ (9 รายการ)
+- `sum_group_2` - รวมค่าใช้จ่าย (19 รายการ)
+- `sum_service_revenue` - รวมรายได้บริการ
+- `total_expense_no_finance` - ค่าใช้จ่ายไม่รวมต้นทุนทางการเงิน
+- `total_expense_with_finance` - ค่าใช้จ่ายรวมต้นทุนทางการเงิน
+- `ebitda` - EBITDA
+
+---
+
+## 📋 สถานะของไฟล์
+
+### ✅ ใช้งานจริง
+
+| File | Description |
+|------|-------------|
+| `generate_report.py` | Entry point หลัก |
+| `config/settings.py` | การตั้งค่าระบบ |
+| `config/data_mapping.py` | COSTTYPE mappings |
+| `config/data_mapping_glgroup.py` | GLGROUP mappings |
+| `config/row_order.py` | COSTTYPE row definitions |
+| `config/row_order_glgroup.py` | GLGROUP row definitions |
+| `config/types.py` | Enum definitions |
+| `src/data_loader/*` | Data loading modules |
+| `src/report_generator/*` | Report generation modules |
+
+### ⚠️ ต้องปรับปรุง
+
+| File | Issue |
+|------|-------|
+| `main.py` | ใช้ cli.py ที่มีปัญหา |
+| `src/cli/cli.py` | Import ExcelGenerator ที่ไม่มีแล้ว |
+| `src/cli/commands.py` | `load_remark_file()` มี bug |
+| `config/report_config.py` | Legacy (ใช้ `core/config.py` แทน) |
+
+### ❌ ไม่ใช้แล้ว (ควรลบหรือย้าย)
+
+| File | Reason |
+|------|--------|
+| `main_generator.py` | Legacy hardcoded version |
+| `src/data_loader/*.bak` | Backup files |
+| `archive/` | Old implementations |
+| `backup_*/` | Old backups |
+
+### 🚧 ยังไม่ implement
+
+| File | Status |
+|------|--------|
+| `src/web/*` | Placeholder (FastAPI web interface) |
+| `src/calculators/*` | Placeholder |
+
+---
+
+## 🔄 เมื่อข้อมูลเปลี่ยนแปลง
+
+### เมื่อมี CSV ใหม่
+
+1. วางไฟล์ CSV ใน `data/` directory
+2. สร้าง remark file ใหม่ (ถ้ามี): `remark_YYYYMMDD.txt`
+3. รัน `python generate_report.py` (auto-detect ไฟล์ล่าสุด)
+
+### เมื่อมีแถวรายงานใหม่
+
+1. เพิ่ม mapping ใน `config/data_mapping*.py`
+2. เพิ่ม row definition ใน `config/row_order*.py`
+3. ถ้าเป็น calculated row ต้องเพิ่ม logic ใน `data_aggregator.py`
+
+### เมื่อมีกลุ่มธุรกิจใหม่
+
+1. เพิ่มสีใน `bu_colors` ของ `config/settings.py`
+2. ตรวจสอบว่า CSV มีค่า BU ใหม่
+
+---
+
+## 📝 Notes
+
+- **Encoding:** ไฟล์ CSV จาก SAP ใช้ TIS-620 encoding
+- **Font:** ต้องติดตั้ง TH Sarabun New ในเครื่อง
+- **Output:** ไฟล์ output จะสร้างชื่ออัตโนมัติพร้อม timestamp
+
+---
+
+## 📞 Support
+
+สำหรับปัญหาหรือคำถาม กรุณาติดต่อทีมพัฒนา
