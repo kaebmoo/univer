@@ -584,9 +584,8 @@ class DataAggregator:
                 "- รายได้จากการขาย",
                 "- ผลตอบแทนทางการเงินและรายได้อื่น"  # Parent row, NOT detail rows
             ]
-            result = self._sum_rows_glgroup(all_row_data, revenue_labels)
-            print(f"  → sum_group_1 result: {result}")
-            return result
+            # Query from database directly (this calculated row appears before detail rows)
+            return self._sum_labels_from_db_glgroup(revenue_labels, bu_list, service_group_dict)
         
         elif formula == "sum_group_2":
             expense_labels = [
@@ -607,7 +606,8 @@ class DataAggregator:
                 "- ต้นทุนทางการเงิน-ด้านการดำเนินงาน",
                 "- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน"
             ]
-            return self._sum_rows_glgroup(all_row_data, expense_labels)
+            # Query from database directly (this calculated row appears before detail rows)
+            return self._sum_labels_from_db_glgroup(expense_labels, bu_list, service_group_dict)
         
         elif formula == "sum_service_revenue":
             service_labels = [
@@ -666,6 +666,210 @@ class DataAggregator:
                 print(f"      ✗ Missing '{label}' in all_row_data")
         print(f"    _sum_rows_glgroup result: {len(result)} keys")
         return result
+
+    def _sum_labels_from_db_glgroup(
+        self,
+        labels: List[str],
+        bu_list: List[str],
+        service_group_dict: Dict[str, List[str]]
+    ) -> Dict[str, float]:
+        """
+        Sum multiple labels by querying database directly (for calculated rows that appear before detail rows)
+
+        Args:
+            labels: List of row labels to sum
+            bu_list: List of BUs
+            service_group_dict: Dict mapping BU to service groups
+
+        Returns:
+            Dict with aggregated values
+        """
+        from config.data_mapping_glgroup import get_group_sub_group_glgroup
+
+        result = {}
+
+        for label in labels:
+            # Get GROUP/SUB_GROUP for this label
+            group, sub_group = get_group_sub_group_glgroup(label)
+
+            if not group:
+                continue
+
+            # Query from database
+            row_data = self.get_row_data_glgroup(label, bu_list, service_group_dict)
+
+            # Sum into result
+            for key, value in row_data.items():
+                result[key] = result.get(key, 0) + value
+
+        return result
+
+        # Main profit/loss calculations
+        if calc_type == "gross_profit":
+            # 3 = 1 - 2
+            revenue_data = all_row_data.get("1.รายได้", {})
+            cost_data = all_row_data.get("2.ต้นทุนบริการและต้นทุนขาย :", {})
+            for key in revenue_data:
+                result[key] = revenue_data.get(key, 0) - cost_data.get(key, 0)
+            return result
+
+        elif calc_type == "profit_after_selling":
+            # 5 = 3 - 4
+            gross_profit = all_row_data.get("3.กำไร(ขาดทุน)ขั้นต้นจากการดำเนินงาน (1) - (2)", {})
+            selling_expense = all_row_data.get("4.ค่าใช้จ่ายขายและการตลาด :", {})
+            for key in gross_profit:
+                result[key] = gross_profit.get(key, 0) - selling_expense.get(key, 0)
+            return result
+
+        elif calc_type == "profit_before_finance":
+            # 8 = 5 - 6 - 7
+            profit5 = all_row_data.get("5.กำไร(ขาดทุน)หลังหักค่าใช้จ่ายขายและการตลาด (3) - (4)", {})
+            admin_expense = all_row_data.get("6.ค่าใช้จ่ายบริหารและสนับสนุน :", {})
+            finance_operating = all_row_data.get("7.ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {})
+            for key in profit5:
+                result[key] = profit5.get(key, 0) - admin_expense.get(key, 0) - finance_operating.get(key, 0)
+            return result
+
+        elif calc_type == "ebt":
+            # 12 = 8 + 9 - 10 - 11
+            profit8 = all_row_data.get("8.กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน รายได้อื่นและค่าใช้จ่ายอื่น (5) - (6) - (7)", {})
+            financial_income = all_row_data.get("9.ผลตอบแทนทางการเงินและรายได้อื่น", {})
+            other_expense = all_row_data.get("10.ค่าใช้จ่ายอื่น", {})
+            finance_funding = all_row_data.get("11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {})
+            for key in profit8:
+                result[key] = profit8.get(key, 0) + financial_income.get(key, 0) - other_expense.get(key, 0) - finance_funding.get(key, 0)
+            return result
+
+        elif calc_type == "net_profit":
+            # 14 = 12 - 13
+            # Net profit is only calculated at GRAND_TOTAL level
+            # For BU_TOTAL and SG columns, return None
+            ebt = all_row_data.get("12.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (8) + (9) - (10) - (11)", {})
+            tax = all_row_data.get("13.ภาษีเงินได้นิติบุคคล", {})
+            for key in ebt:
+                # Only calculate for GRAND_TOTAL
+                if key == "GRAND_TOTAL":
+                    result[key] = ebt.get(key, 0) - tax.get(key, 0)
+                else:
+                    result[key] = None  # Will be displayed with gray background
+            return result
+
+        elif calc_type == "sum_revenue":
+            # Sum all revenue (GROUP = 01 + 09)
+            groups = ["01.รายได้", "09.ผลตอบแทนทางการเงินและรายได้อื่น"]
+            return self._sum_multiple_groups(groups, bu_list, service_group_dict)
+
+        elif calc_type == "sum_expense_no_finance":
+            # Sum of cost of service, selling, admin, other expenses (02, 04, 06, 10)
+            groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :",
+                "10.ค่าใช้จ่ายอื่น"
+            ]
+            return self._sum_multiple_groups(groups, bu_list, service_group_dict)
+
+        elif calc_type == "sum_expense_with_finance":
+            # Sum including finance costs (02, 04, 06, 07, 10, 11)
+            groups = [
+                "02.ต้นทุนบริการและต้นทุนขาย :",
+                "04.ค่าใช้จ่ายขายและการตลาด :",
+                "06.ค่าใช้จ่ายบริหารและสนับสนุน :",
+                "07.ต้นทุนทางการเงิน-ด้านการดำเนินงาน",
+                "10.ค่าใช้จ่ายอื่น",
+                "11.ต้นทุนทางการเงิน-ด้านการจัดหาเงิน"
+            ]
+            return self._sum_multiple_groups(groups, bu_list, service_group_dict)
+
+        elif calc_type == "ebitda":
+            # EBITDA = Revenue Total - Expense Total (excl. finance & depreciation)
+            # = (01 + 09) - (02 + 04 + 06 + 10) + Depreciation
+            revenue_data = all_row_data.get("รายได้รวม", {})
+            expense_data = all_row_data.get("ค่าใช้จ่ายรวม (ไม่รวมต้นทุนทางการเงิน)", {})
+
+            # Get depreciation from all expense groups (02, 04, 06)
+            depreciation_data = self._sum_depreciation(bu_list, service_group_dict)
+
+            # EBITDA = Revenue - Expense + Depreciation
+            for key in revenue_data:
+                result[key] = revenue_data.get(key, 0) - expense_data.get(key, 0) + depreciation_data.get(key, 0)
+
+            return result
+
+        elif calc_type == "service_revenue":
+            # Revenue excluding other income (exclude GROUP 09)
+            # This is basically GROUP 01 only
+            return self._sum_by_group("01.รายได้", bu_list, service_group_dict)
+
+        elif calc_type == "total_service_cost":
+            # Total service cost (GROUP 02)
+            return self._sum_by_group("02.ต้นทุนบริการและต้นทุนขาย :", bu_list, service_group_dict)
+
+        elif calc_type == "total_service_cost_ratio":
+            # Ratio = total_service_cost / service_revenue
+            service_revenue = all_row_data.get("รายได้บริการ", {})
+            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
+            return self._calculate_ratio(total_cost, service_revenue)
+
+        elif calc_type == "service_cost_no_depreciation":
+            # This is NOT "service cost minus depreciation"
+            # It's "depreciation portion of service cost" (just the depreciation value itself)
+            # = SUB_GROUP "12.ค่าเสื่อมราคา..." from GROUP 02 only
+            depreciation_category = "12.ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์"
+            group = "02.ต้นทุนบริการและต้นทุนขาย :"
+
+            result = {}
+            for bu in bu_list:
+                bu_total_key = f"BU_TOTAL_{bu}"
+                result[bu_total_key] = self.get_value(group, depreciation_category, bu, None)
+
+                service_groups = service_group_dict.get(bu, [])
+                for sg in service_groups:
+                    sg_key = f"{bu}_{sg}"
+                    result[sg_key] = self.get_value(group, depreciation_category, bu, sg)
+
+            result["GRAND_TOTAL"] = self.get_value(group, depreciation_category, None, None)
+            return result
+
+        elif calc_type == "service_cost_no_depreciation_ratio":
+            service_revenue = all_row_data.get("รายได้บริการ", {})
+            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ", {})
+            return self._calculate_ratio(cost_no_dep, service_revenue)
+
+        elif calc_type == "service_cost_no_personnel_depreciation":
+            # Service cost excluding personnel and depreciation (SUB_GROUP 12 only, not 13)
+            # = Total service cost - personnel costs - depreciation (12 only)
+            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
+            personnel = self._sum_personnel(bu_list, service_group_dict, group_filter="02.ต้นทุนบริการและต้นทุนขาย :")
+
+            # Get only SUB_GROUP 12 (not 13)
+            depreciation_category = "12.ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์"
+            group = "02.ต้นทุนบริการและต้นทุนขาย :"
+
+            depreciation = {}
+            for bu in bu_list:
+                bu_total_key = f"BU_TOTAL_{bu}"
+                depreciation[bu_total_key] = self.get_value(group, depreciation_category, bu, None)
+
+                service_groups = service_group_dict.get(bu, [])
+                for sg in service_groups:
+                    sg_key = f"{bu}_{sg}"
+                    depreciation[sg_key] = self.get_value(group, depreciation_category, bu, sg)
+
+            depreciation["GRAND_TOTAL"] = self.get_value(group, depreciation_category, None, None)
+
+            result = {}
+            for key in total_cost:
+                result[key] = total_cost.get(key, 0) - personnel.get(key, 0) - depreciation.get(key, 0)
+            return result
+
+        elif calc_type == "service_cost_no_personnel_depreciation_ratio":
+            service_revenue = all_row_data.get("รายได้บริการ", {})
+            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ", {})
+            return self._calculate_ratio(cost_no_pers_dep, service_revenue)
+
+        return result
+
     def _sum_by_group(
         self,
         group: str,
