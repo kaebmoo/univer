@@ -119,7 +119,10 @@ class DataWriter:
             elif is_glgroup:
                 # GLGROUP methods
                 from config.data_mapping_glgroup import is_calculated_row_glgroup
-                if is_calculated_row_glgroup(label):
+                is_calc = is_calculated_row_glgroup(label)
+                print(f"GLGROUP Row: '{label}' | is_calc={is_calc}")
+                if is_calc:
+                    print(f"  → Calling calculate_summary_row_glgroup()")
                     row_data = aggregator.calculate_summary_row_glgroup(
                         label,
                         bu_list,
@@ -132,6 +135,9 @@ class DataWriter:
                         bu_list,
                         service_group_dict
                     )
+                    print(f"  → get_row_data_glgroup returned {len(row_data)} keys")
+                    if row_data:
+                        print(f"     Sample: {list(row_data.keys())[:3]}")
             elif is_calculated_row(label):
                 # Calculated row (COSTTYPE)
                 row_data = aggregator.calculate_summary_row(

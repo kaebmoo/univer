@@ -12,6 +12,7 @@ Key differences from COSTTYPE:
 # Format: (level, label, is_calculated, calculation_formula, is_bold)
 
 ROW_ORDER_GLGROUP = [
+    # Revenue data rows first
     # 1. รวมรายได้
     (0, "1 รวมรายได้", True, "sum_group_1", True),
     (1, "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน", False, None, False),
@@ -26,8 +27,9 @@ ROW_ORDER_GLGROUP = [
     # รวมรายได้จากการให้บริการ
     (0, "รวมรายได้จากการให้บริการ", True, "sum_service_revenue", True),
     
-    # ผลตอบแทนทางการเงินและรายได้อื่น
+    # ผลตอบแทนทางการเงินและรายได้อื่น - มีข้อมูลใน CSV
     (1, "- ผลตอบแทนทางการเงินและรายได้อื่น", False, None, False),
+    # Detail rows below show service group breakdown (no separate SUB_GROUP in CSV)
     (2, "     - ผลตอบแทนทางการเงิน", False, None, False),
     (2, "     - รายได้อื่น", False, None, False),
     
