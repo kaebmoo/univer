@@ -273,17 +273,25 @@ class DataWriter:
         for idx, col in enumerate(data_columns):
             col_index = start_col + idx + 1  # +1 for label column
 
-            # Tax row COSTTYPE - only show in GRAND_TOTAL
-            if is_tax_row_costtype and col.col_type != 'grand_total':
-                cell = ws.cell(row=row_index + 1, column=col_index + 1)
-                self.formatter.format_data_cell(
-                    cell,
-                    value=None,
-                    is_bold=row_def.is_bold,
-                    bg_color='A6A6A6',
-                    is_percentage=False
-                )
-                continue
+            # Tax row COSTTYPE - only show GRAND_TOTAL and its Common Size (col.bu = None)
+            if is_tax_row_costtype:
+                if col.col_type == 'grand_total':
+                    # Allow grand_total to proceed normally
+                    pass
+                elif col.col_type == 'common_size' and col.bu is None:
+                    # Allow grand total's common size to proceed normally
+                    pass
+                else:
+                    # Gray out all other columns (including BU-specific common sizes)
+                    cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                    self.formatter.format_data_cell(
+                        cell,
+                        value=None,
+                        is_bold=row_def.is_bold,
+                        bg_color='A6A6A6',
+                        is_percentage=False
+                    )
+                    continue
             
             # Tax row GLGROUP - only show GRAND_TOTAL and its Common Size (col.bu = None)
             if is_tax_row_glgroup:
@@ -721,16 +729,21 @@ class DataWriter:
     def _calculate_common_size(self, col: ColumnDef, row_data: Dict[str, float], all_row_data: Dict, label: str) -> Optional[float]:
         """
         Calculate Common Size (percentage of รายได้รวม)
-        
+
         Args:
             col: Column definition
             row_data: Current row data
             all_row_data: All row data
             label: Row label
-        
+
         Returns:
             Common size value (as decimal, e.g., 0.42 for 42%) or None
         """
+        # Check if this row should have common size
+        report_type = self.config.report_type.value
+        if not should_have_common_size(label, report_type):
+            return None
+
         # Don't calculate common size for "สัดส่วนต่อรายได้" rows
         if "สัดส่วนต่อรายได้" in label:
             return None
