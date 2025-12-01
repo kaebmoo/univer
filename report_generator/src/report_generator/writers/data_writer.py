@@ -739,11 +739,6 @@ class DataWriter:
         Returns:
             Common size value (as decimal, e.g., 0.42 for 42%) or None
         """
-        # Check if this row should have common size
-        report_type = self.config.report_type.value
-        if not should_have_common_size(label, report_type):
-            return None
-
         # Don't calculate common size for "สัดส่วนต่อรายได้" rows
         if "สัดส่วนต่อรายได้" in label:
             return None
