@@ -458,7 +458,8 @@ class DataAggregator:
         elif calc_type == "service_cost_no_personnel_depreciation":
             # Service cost excluding personnel and depreciation (SUB_GROUP 12 only, not 13)
             # = Total service cost - personnel costs - depreciation (12 only)
-            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
+            # Use flexible lookup for sub-items (they may be stored with composite keys)
+            total_cost = self._get_row_data_flexible(all_row_data, "     1. ต้นทุนบริการรวม")
             personnel = self._sum_personnel(bu_list, service_group_dict, group_filter="02.ต้นทุนบริการและต้นทุนขาย :")
 
             # Get only SUB_GROUP 12 (not 13)
@@ -634,11 +635,14 @@ class DataAggregator:
         
         elif formula == "total_expense_no_finance":
             total = all_row_data.get("2 รวมค่าใช้จ่าย", {}).copy()
-            op = all_row_data.get("- ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {})
-            fund = all_row_data.get("- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {})
+            # Use flexible lookup for sub-items (they may be stored with composite keys)
+            op = self._get_row_data_flexible(all_row_data, "- ต้นทุนทางการเงิน-ด้านการดำเนินงาน")
+            fund = self._get_row_data_flexible(all_row_data, "- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน")
+
             result = {}
             for key in total:
                 result[key] = total.get(key, 0) - op.get(key, 0) - fund.get(key, 0)
+
             return result
         
         elif formula == "total_expense_with_finance":
@@ -1206,17 +1210,20 @@ class DataAggregator:
         """Calculate specific ratio type based on context"""
         if calc_type == "total_service_cost_ratio":
             service_revenue = all_row_data.get("รายได้บริการ") or {}
-            total_cost = all_row_data.get("     1. ต้นทุนบริการรวม") or {}
+            # Use flexible lookup for sub-items (they may be stored with composite keys)
+            total_cost = self._get_row_data_flexible(all_row_data, "     1. ต้นทุนบริการรวม")
             return self._calculate_ratio(total_cost, service_revenue)
 
         elif calc_type == "service_cost_no_depreciation_ratio":
             service_revenue = all_row_data.get("รายได้บริการ") or {}
-            cost_no_dep = all_row_data.get("     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ") or {}
+            # Use flexible lookup for sub-items (they may be stored with composite keys)
+            cost_no_dep = self._get_row_data_flexible(all_row_data, "     2. ต้นทุนบริการ - ค่าเสื่อมราคาฯ")
             return self._calculate_ratio(cost_no_dep, service_revenue)
 
         elif calc_type == "service_cost_no_personnel_depreciation_ratio":
             service_revenue = all_row_data.get("รายได้บริการ") or {}
-            cost_no_pers_dep = all_row_data.get("     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ") or {}
+            # Use flexible lookup for sub-items (they may be stored with composite keys)
+            cost_no_pers_dep = self._get_row_data_flexible(all_row_data, "     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ")
             return self._calculate_ratio(cost_no_pers_dep, service_revenue)
 
         return {}

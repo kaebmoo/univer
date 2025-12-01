@@ -150,8 +150,13 @@ class DataWriter:
                 )
             
             # Store row data
-            # For sub-items (level 1), use composite key to avoid collision
-            if row_def.level == 1 and current_main_group_label:
+            # For ratio rows, use previous_label to create unique composite key
+            # (since multiple ratio rows share the same label under different parents)
+            if is_ratio_row and previous_label:
+                storage_key = f"{previous_label}|{label}"
+                all_row_data[storage_key] = row_data
+            # For other sub-items (level 1), use main_group composite key
+            elif row_def.level == 1 and current_main_group_label:
                 storage_key = f"{current_main_group_label}|{label}"
                 all_row_data[storage_key] = row_data
             else:
@@ -191,8 +196,15 @@ class DataWriter:
             )
             
             # Get row data from pre-built all_row_data (Pass 1)
-            # For sub-items (level 1), use composite key
-            if row_def.level == 1 and current_main_group_label:
+            # Detect ratio row
+            is_ratio_row_pass2 = ("สัดส่วนต่อรายได้" in label)
+
+            # For ratio rows, use previous_label to lookup composite key
+            if is_ratio_row_pass2 and previous_label:
+                lookup_key = f"{previous_label}|{label}"
+                row_data = all_row_data.get(lookup_key, {})
+            # For other sub-items (level 1), use main_group composite key
+            elif row_def.level == 1 and current_main_group_label:
                 lookup_key = f"{current_main_group_label}|{label}"
                 row_data = all_row_data.get(lookup_key, {})
             else:
@@ -398,7 +410,7 @@ class DataWriter:
             return None
 
         col_type = col.col_type
-        
+
         # Detect report type
         is_glgroup = (self.config.report_type.value == "GLGROUP")
 
@@ -406,7 +418,8 @@ class DataWriter:
             return row_data.get('GRAND_TOTAL', 0)
 
         elif col_type == 'bu_total':
-            return row_data.get(f'BU_TOTAL_{col.bu}', 0)
+            key = f'BU_TOTAL_{col.bu}'
+            return row_data.get(key, 0)
         
         elif col_type == 'common_size':
             # Common Size column - calculate percentage of รายได้รวม

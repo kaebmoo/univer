@@ -263,8 +263,16 @@ def main():
             output_path = args.output
         else:
             args.output_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"PL_{args.report_type}_{args.period}_{args.detail_level}_{timestamp}.xlsx"
+            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # ใหม่: ดึงค่า TIME_KEY จากข้อมูล
+            if 'TIME_KEY' in df.columns and not df.empty:
+                # ดึงค่าจากแถวแรก (iloc[0]) มาแปลงเป็น string และตัดช่องว่าง
+                time_key = str(df['TIME_KEY'].iloc[0]).strip()
+            else:
+                # Fallback: ถ้าไม่มี column TIME_KEY หรือไม่มีข้อมูล ให้ใช้เวลาปัจจุบันเหมือนเดิม
+                time_key = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            filename = f"PL_{args.report_type}_{args.period}_{args.detail_level}_{time_key}.xlsx"
             output_path = args.output_dir / filename
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
