@@ -646,14 +646,17 @@ class DataAggregator:
         
         elif formula == "ebitda":
             ebt = all_row_data.get("3.กำไร(ขาดทุน)ก่อนหักภาษีเงินได้ (EBT) (1)-(2)", {})
-            dep = all_row_data.get("- ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์", {})
-            amort = all_row_data.get("- ค่าตัดจำหน่ายสิทธิการใช้ตามสัญญาเช่า", {})
-            fin_op = all_row_data.get("- ต้นทุนทางการเงิน-ด้านการดำเนินงาน", {})
-            fin_fund = all_row_data.get("- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน", {})
+
+            # Get sub-items using flexible lookup (supports composite keys)
+            dep = self._get_row_data_flexible(all_row_data, "- ค่าเสื่อมราคาและรายจ่ายตัดบัญชีสินทรัพย์")
+            amort = self._get_row_data_flexible(all_row_data, "- ค่าตัดจำหน่ายสิทธิการใช้ตามสัญญาเช่า")
+            fin_op = self._get_row_data_flexible(all_row_data, "- ต้นทุนทางการเงิน-ด้านการดำเนินงาน")
+            fin_fund = self._get_row_data_flexible(all_row_data, "- ต้นทุนทางการเงิน-ด้านการจัดหาเงิน")
+
             result = {}
             all_keys = set(ebt.keys()) | set(dep.keys()) | set(amort.keys()) | set(fin_op.keys()) | set(fin_fund.keys())
             for key in all_keys:
-                result[key] = (ebt.get(key, 0) + dep.get(key, 0) + amort.get(key, 0) + 
+                result[key] = (ebt.get(key, 0) + dep.get(key, 0) + amort.get(key, 0) +
                              fin_op.get(key, 0) + fin_fund.get(key, 0))
             return result
         
@@ -1151,6 +1154,29 @@ class DataAggregator:
                         result[f'PRODUCT_{bu}_{sg}_{product_key}'] = value
         
         return result
+
+    def _get_row_data_flexible(self, all_row_data: Dict[str, Dict], label: str) -> Dict[str, float]:
+        """
+        Get row data, trying both direct key and composite key
+
+        Args:
+            all_row_data: All row data
+            label: Label to search for
+
+        Returns:
+            Row data dict (may be empty if not found)
+        """
+        # Try direct key first
+        if label in all_row_data:
+            return all_row_data[label]
+
+        # Try composite keys (main_group|label)
+        for storage_key in all_row_data:
+            if storage_key.endswith(f"|{label}"):
+                return all_row_data[storage_key]
+
+        # Not found
+        return {}
 
     def _sum_rows_glgroup(self, all_row_data: Dict[str, Dict], labels: List[str]) -> Dict[str, float]:
         """Sum multiple rows for GLGROUP"""
