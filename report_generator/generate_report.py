@@ -31,11 +31,18 @@ Examples:
 """
 import sys
 import argparse
+import logging
 from pathlib import Path
 from datetime import datetime
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(name)s - %(message)s'
+)
 
 from src.data_loader import CSVLoader, DataProcessor
 from src.report_generator import ReportBuilder, ReportConfig
@@ -171,6 +178,17 @@ def main():
 
     # Options
     parser.add_argument(
+        '--common-size',
+        action='store_true',
+        default=None,
+        help='Include Common Size columns (default: auto - True for BU_ONLY, False otherwise)'
+    )
+    parser.add_argument(
+        '--no-common-size',
+        action='store_true',
+        help='Disable Common Size columns'
+    )
+    parser.add_argument(
         '--encoding',
         default='tis-620',
         help='CSV encoding (default: tis-620)'
@@ -221,12 +239,24 @@ def main():
         print(f"   Type: {args.report_type}")
         print(f"   Period: {args.period}")
         print(f"   Detail Level: {args.detail_level}")
+        
+        # Determine common_size setting
+        include_common_size = None
+        if args.no_common_size:
+            include_common_size = False
+        elif args.common_size:
+            include_common_size = True
+        # else: None = auto-detect in ReportConfig
 
         config = ReportConfig(
             report_type=args.report_type,
             period_type=args.period,
-            detail_level=args.detail_level
+            detail_level=args.detail_level,
+            include_common_size=include_common_size
         )
+        
+        if config.include_common_size:
+            print(f"   Common Size: Enabled")
 
         # 5. Determine output path
         if args.output:

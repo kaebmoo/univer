@@ -173,3 +173,21 @@ class BaseColumnBuilder(ABC):
             width=18,
             color=self.config.bu_colors.get(bu, 'FFFFFF')
         )
+    
+    def _create_common_size_column(self, bu: str = None) -> ColumnDef:
+        """
+        Create Common Size column
+        
+        Args:
+            bu: Business unit name (optional, for BU-specific common size)
+        
+        Returns:
+            ColumnDef for Common Size
+        """
+        return ColumnDef(
+            name='Common Size',
+            col_type='common_size',
+            bu=bu,
+            width=12,
+            color=self.config.bu_colors.get(bu, 'FFFFFF') if bu else 'FFFFFF'
+        )

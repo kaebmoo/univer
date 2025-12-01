@@ -16,6 +16,7 @@ from ..columns.base_column_builder import ColumnDef
 from ..rows.row_builder import RowDef
 from src.data_loader import DataAggregator
 from config.data_mapping import get_group_sub_group, is_calculated_row
+from config.common_size_rows import should_have_common_size
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,97 @@ class DataWriter:
         current_main_group_label = None
         previous_label = None
         
+        # ========================================
+        # PASS 1: Build all_row_data dictionary
+        # ========================================
+        logger.info("Pass 1: Building all row data for Common Size calculation...")
+        for row_def in rows:
+            label = row_def.label
+            
+            # Update main group context
+            if row_def.level == 0:
+                current_main_group_label = label
+                logger.debug(f"Updated main_group_label to: {current_main_group_label}")
+            
+            # Skip empty rows
+            if not label:
+                continue
+            
+            # Debug: Log expense sub-item processing
+            if row_def.level == 1 and "ค่าใช้จ่ายตอบแทนแรงงาน" in label:
+                logger.info(f"Processing '{label}' under main_group='{current_main_group_label}'")
+            
+            # Get row data - detect report type
+            is_ratio_row = (label == "สัดส่วนต่อรายได้" or "สัดส่วนต่อรายได้" in label)
+            skip_calculation = (label == "คำนวณสัดส่วนต้นทุนบริการต่อรายได้")
+            
+            # Detect report type
+            is_glgroup = (self.config.report_type.value == "GLGROUP")
+            
+            if skip_calculation:
+                row_data = {}
+            elif is_ratio_row:
+                # Context-aware ratio calculation (COSTTYPE only)
+                ratio_type = self._get_ratio_type(previous_label)
+                row_data = aggregator._calculate_ratio_by_type(
+                    ratio_type,
+                    all_row_data,
+                    bu_list,
+                    service_group_dict
+                )
+            elif is_glgroup:
+                # GLGROUP methods
+                from config.data_mapping_glgroup import is_calculated_row_glgroup
+                is_calc = is_calculated_row_glgroup(label)
+                if is_calc:
+                    row_data = aggregator.calculate_summary_row_glgroup(
+                        label,
+                        bu_list,
+                        service_group_dict,
+                        all_row_data
+                    )
+                else:
+                    row_data = aggregator.get_row_data_glgroup(
+                        label,
+                        bu_list,
+                        service_group_dict
+                    )
+            elif is_calculated_row(label):
+                # Calculated row (COSTTYPE)
+                row_data = aggregator.calculate_summary_row(
+                    label,
+                    bu_list,
+                    service_group_dict,
+                    all_row_data
+                )
+            else:
+                # Regular data row (COSTTYPE)
+                row_data = aggregator.get_row_data(
+                    label,
+                    current_main_group_label,
+                    bu_list,
+                    service_group_dict
+                )
+            
+            # Store row data
+            # For sub-items (level 1), use composite key to avoid collision
+            if row_def.level == 1 and current_main_group_label:
+                storage_key = f"{current_main_group_label}|{label}"
+                all_row_data[storage_key] = row_data
+            else:
+                all_row_data[label] = row_data
+            previous_label = label
+        
+        logger.info(f"Pass 1 complete: Built {len(all_row_data)} rows of data")
+        
+        # ========================================
+        # PASS 2: Write all rows to Excel
+        # ========================================
+        logger.info("Pass 2: Writing data to Excel...")
+        current_row = start_row
+        current_main_group_label = None
+        previous_label = None
+        
         # Write each row
         for row_def in rows:
             label = row_def.label
@@ -98,65 +190,17 @@ class DataWriter:
                 start_col
             )
             
-            # Get row data - detect report type
-            is_ratio_row = (label == "         สัดส่วนต่อรายได้")
-            skip_calculation = (label == "คำนวณสัดส่วนต้นทุนบริการต่อรายได้")
-            
-            # Detect report type
-            is_glgroup = (self.config.report_type.value == "GLGROUP")
-            
-            if skip_calculation:
-                row_data = {}
-            elif is_ratio_row:
-                # Context-aware ratio calculation (COSTTYPE only)
-                ratio_type = self._get_ratio_type(previous_label)
-                row_data = aggregator._calculate_ratio_by_type(
-                    ratio_type,
-                    all_row_data,
-                    bu_list,
-                    service_group_dict
-                )
-            elif is_glgroup:
-                # GLGROUP methods
-                from config.data_mapping_glgroup import is_calculated_row_glgroup
-                is_calc = is_calculated_row_glgroup(label)
-                print(f"GLGROUP Row: '{label}' | is_calc={is_calc}")
-                if is_calc:
-                    print(f"  → Calling calculate_summary_row_glgroup()")
-                    row_data = aggregator.calculate_summary_row_glgroup(
-                        label,
-                        bu_list,
-                        service_group_dict,
-                        all_row_data
-                    )
-                else:
-                    row_data = aggregator.get_row_data_glgroup(
-                        label,
-                        bu_list,
-                        service_group_dict
-                    )
-                    print(f"  → get_row_data_glgroup returned {len(row_data)} keys")
-                    if row_data:
-                        print(f"     Sample: {list(row_data.keys())[:3]}")
-            elif is_calculated_row(label):
-                # Calculated row (COSTTYPE)
-                row_data = aggregator.calculate_summary_row(
-                    label,
-                    bu_list,
-                    service_group_dict,
-                    all_row_data
-                )
+            # Get row data from pre-built all_row_data (Pass 1)
+            # For sub-items (level 1), use composite key
+            if row_def.level == 1 and current_main_group_label:
+                lookup_key = f"{current_main_group_label}|{label}"
+                row_data = all_row_data.get(lookup_key, {})
             else:
-                # Regular data row (COSTTYPE)
-                row_data = aggregator.get_row_data(
-                    label,
-                    current_main_group_label,
-                    bu_list,
-                    service_group_dict
-                )
+                row_data = all_row_data.get(label, {})
             
-            # Store row data
-            all_row_data[label] = row_data
+            # Detect skip calculation and ratio row
+            skip_calculation = (label == "คำนวณสัดส่วนต้นทุนบริการต่อรายได้")
+            is_ratio_row = ("สัดส่วนต่อรายได้" in label)
             
             # Write data cells (skip if skip_calculation)
             if not skip_calculation:
@@ -241,39 +285,45 @@ class DataWriter:
                 )
                 continue
             
-            # Tax row GLGROUP - only GRAND_TOTAL has value, others gray empty
-            if is_tax_row_glgroup and col.col_type != 'grand_total':
-                cell = ws.cell(row=row_index + 1, column=col_index + 1)
-                self.formatter.format_data_cell(
-                    cell,
-                    value=None,
-                    is_bold=row_def.is_bold,
-                    bg_color='A6A6A6',
-                    is_percentage=False
-                )
-                continue
+            # Tax row GLGROUP - only show GRAND_TOTAL and its Common Size (col.bu = None)
+            if is_tax_row_glgroup:
+                if col.col_type == 'grand_total':
+                    # Allow grand_total to proceed normally
+                    pass
+                elif col.col_type == 'common_size' and col.bu is None:
+                    # Allow grand total's common size to proceed normally
+                    pass
+                else:
+                    # Gray out all other columns (including BU-specific common sizes)
+                    cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                    self.formatter.format_data_cell(
+                        cell,
+                        value=None,
+                        is_bold=row_def.is_bold,
+                        bg_color='A6A6A6',
+                        is_percentage=False
+                    )
+                    continue
             
-            # Net Profit row GLGROUP - has values, non-grand-total gray BG
-            if is_net_profit_row_glgroup and col.col_type != 'grand_total':
-                value = self._get_cell_value(
-                    col,
-                    row_data,
-                    label,
-                    is_ratio_row,
-                    aggregator,
-                    all_row_data,
-                    current_main_group_label,
-                    previous_label
-                )
-                cell = ws.cell(row=row_index + 1, column=col_index + 1)
-                self.formatter.format_data_cell(
-                    cell,
-                    value=value,
-                    is_bold=row_def.is_bold,
-                    bg_color='A6A6A6',
-                    is_percentage=False
-                )
-                continue
+            # Net Profit row GLGROUP - only show GRAND_TOTAL and its Common Size (col.bu = None)
+            if is_net_profit_row_glgroup:
+                if col.col_type == 'grand_total':
+                    # Allow grand_total to proceed normally
+                    pass
+                elif col.col_type == 'common_size' and col.bu is None:
+                    # Allow grand total's common size to proceed normally
+                    pass
+                else:
+                    # Gray out all other columns (including BU-specific common sizes)
+                    cell = ws.cell(row=row_index + 1, column=col_index + 1)
+                    self.formatter.format_data_cell(
+                        cell,
+                        value=None,
+                        is_bold=row_def.is_bold,
+                        bg_color='A6A6A6',
+                        is_percentage=False
+                    )
+                    continue
             
             # Get value for this cell
             value = self._get_cell_value(
@@ -291,7 +341,7 @@ class DataWriter:
             cell = ws.cell(row=row_index + 1, column=col_index + 1)
             
             # Determine if percentage
-            is_percentage = "สัดส่วน" in label
+            is_percentage = "สัดส่วน" in label or col.col_type == 'common_size'
             
             # Special handling for None values in specific rows
             bg_color = row_def.color
@@ -349,6 +399,10 @@ class DataWriter:
 
         elif col_type == 'bu_total':
             return row_data.get(f'BU_TOTAL_{col.bu}', 0)
+        
+        elif col_type == 'common_size':
+            # Common Size column - calculate percentage of รายได้รวม
+            return self._calculate_common_size(col, row_data, all_row_data, label)
 
         elif col_type == 'sg_total' or col_type == 'sg':
             # GLGROUP uses SG_TOTAL_{bu}_{sg}, COSTTYPE uses {bu}_{sg}
@@ -622,19 +676,28 @@ class DataWriter:
     ) -> float:
         """
         Sum product values from multiple rows
-        
+
         Args:
             all_row_data: All row data
             labels: Row labels to sum
             product_key_str: Product key string
-        
+
         Returns:
             Sum of values
         """
         total = 0
         for label in labels:
-            row_data = all_row_data.get(label) or {}
-            total += row_data.get(product_key_str, 0)
+            # Try direct key first
+            row_data = all_row_data.get(label)
+            if row_data is None:
+                # Try composite keys (main_group|label)
+                for storage_key in all_row_data:
+                    if storage_key.endswith(f"|{label}"):
+                        row_data = all_row_data[storage_key]
+                        break
+
+            if row_data:
+                total += row_data.get(product_key_str, 0)
         return total
     
     def _get_ratio_type(self, previous_label: str) -> str:
@@ -654,3 +717,79 @@ class DataWriter:
         elif previous_label == "     3. ต้นทุนบริการ - ไม่รวมค่าใช้จ่ายบุคลากรและค่าเสื่อมราคาฯ":
             return "service_cost_no_personnel_depreciation_ratio"
         return "total_service_cost_ratio"  # Default
+    
+    def _calculate_common_size(self, col: ColumnDef, row_data: Dict[str, float], all_row_data: Dict, label: str) -> Optional[float]:
+        """
+        Calculate Common Size (percentage of รายได้รวม)
+        
+        Args:
+            col: Column definition
+            row_data: Current row data
+            all_row_data: All row data
+            label: Row label
+        
+        Returns:
+            Common size value (as decimal, e.g., 0.42 for 42%) or None
+        """
+        # Don't calculate common size for "สัดส่วนต่อรายได้" rows
+        if "สัดส่วนต่อรายได้" in label:
+            return None
+        
+        # CRITICAL: Rows 4 & 5 (GLGROUP ONLY) - Common Size ONLY in Grand Total column
+        # For product keys (BU-specific columns), return None
+        # IMPORTANT: Only apply this rule for GLGROUP reports!
+        is_glgroup = (self.config.report_type.value == "GLGROUP")
+        
+        if is_glgroup:
+            is_tax_row_glgroup = ("4.ภาษีเงินได้นิติบุคคล" in label)
+            is_net_profit_row_glgroup = ("5.กำไร(ขาดทุน) สุทธิ" in label and "(" in label)
+            
+            if (is_tax_row_glgroup or is_net_profit_row_glgroup) and col.bu is not None:
+                # This is a product key column (not Grand Total) - don't calculate common size
+                return None
+        
+        # Get รายได้รวม (total revenue) - try both COSTTYPE and GLGROUP labels
+        total_revenue_labels = [
+            "รายได้รวม",      # COSTTYPE and GLGROUP (preferred)
+            "1 รวมรายได้",    # GLGROUP alternative
+        ]
+        
+        total_revenue_data = None
+        for rev_label in total_revenue_labels:
+            if rev_label in all_row_data:
+                total_revenue_data = all_row_data[rev_label]
+                break
+        
+        if not total_revenue_data:
+            # If no total revenue data found yet, return None
+            # This will happen for rows before "รายได้รวม" row
+            return None
+        
+        # Get current row value based on column type
+        if col.bu is None:
+            # Grand total common size
+            current_value = row_data.get('GRAND_TOTAL', 0) if row_data else 0
+            total_revenue = total_revenue_data.get('GRAND_TOTAL', 0)
+        else:
+            # BU-specific common size
+            current_value = row_data.get(f'BU_TOTAL_{col.bu}', 0) if row_data else 0
+            total_revenue = total_revenue_data.get(f'BU_TOTAL_{col.bu}', 0)
+        
+        # Handle None values (convert to 0)
+        if current_value is None:
+            current_value = 0
+        if total_revenue is None:
+            total_revenue = 0
+        
+        # Calculate percentage
+        if abs(total_revenue) < 1e-9:  # Avoid division by zero
+            return None
+        
+        # Return percentage (will be formatted as % by Excel)
+        result = current_value / total_revenue
+        
+        # Return None for zero values (will display as blank)
+        if abs(result) < 1e-9:
+            return None
+        
+        return result

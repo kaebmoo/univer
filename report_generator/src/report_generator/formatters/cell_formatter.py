@@ -165,7 +165,8 @@ class CellFormatter:
         # Number format
         if value is not None:
             if is_percentage:
-                cell.number_format = '0.00%'
+                # Common Size format: 0.00% for positive, (0.00%) in red for negative, blank for zero
+                cell.number_format = '0.00%;[Red](0.00%);""'
                 cell.alignment = self.create_alignment(
                     horizontal='right',
                     vertical='center'

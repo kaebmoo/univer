@@ -50,15 +50,26 @@ class BUOnlyBuilder(BaseColumnBuilder):
         # 2. Grand total column (รวมทั้งสิ้น)
         columns.append(self._create_grand_total_column())
         
-        # 3. Get BU list
+        # 3. Grand total common size (if enabled)
+        if self.config.include_common_size:
+            # Use same color as Grand Total (FFD966)
+            cs_col = self._create_common_size_column()
+            cs_col.color = self.config.row_colors.get('grand_total', 'FFD966')
+            columns.append(cs_col)
+        
+        # 4. Get BU list
         bu_list = self.data_processor.get_unique_business_units(data)
         logger.info(f"Building BU-only columns for BUs: {bu_list}")
         
-        # 4. For each BU - just add BU total column
+        # 5. For each BU - add BU total column + common size (if enabled)
         for bu in bu_list:
             columns.append(self._create_bu_total_column(bu))
+            if self.config.include_common_size:
+                columns.append(self._create_common_size_column(bu))
         
         logger.info(f"Built {len(columns)} columns total (BU-only structure)")
+        if self.config.include_common_size:
+            logger.info("  ✓ Common Size columns included")
         return columns
     
     def get_column_mapping(self, columns: List[ColumnDef]) -> dict:

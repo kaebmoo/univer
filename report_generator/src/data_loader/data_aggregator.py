@@ -266,6 +266,13 @@ class DataAggregator:
 
         # Get GROUP and SUB_GROUP for this row, using context
         group, sub_group = get_group_sub_group(row_label, main_group_label)
+        
+        # Debug logging for expense sub-items
+        if "ค่าใช้จ่ายตอบแทนแรงงาน" in row_label:
+            logger.info(f"get_row_data: '{row_label}' → GROUP={group}, SUB_GROUP={sub_group}, main_group={main_group_label}")
+            # Also check what value we get
+            test_value = self.get_value(group, sub_group, None, None)
+            logger.info(f"  → GRAND_TOTAL value = {test_value:,.2f}")
 
         if group is None:
             return result
@@ -1149,9 +1156,18 @@ class DataAggregator:
         """Sum multiple rows for GLGROUP"""
         result = {}
         for label in labels:
+            # Try direct key first
             if label in all_row_data:
                 for key, value in all_row_data[label].items():
                     result[key] = result.get(key, 0) + value
+            else:
+                # Try composite keys (main_group|label)
+                # Search for any key that ends with |label
+                for storage_key in all_row_data:
+                    if storage_key.endswith(f"|{label}"):
+                        for key, value in all_row_data[storage_key].items():
+                            result[key] = result.get(key, 0) + value
+                        break
         return result
 
     def _calculate_ratio_by_type(

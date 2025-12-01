@@ -61,6 +61,7 @@ class ReportConfig:
     include_bu_total: bool = True
     include_sg_total: bool = True
     include_products: bool = True
+    include_common_size: Optional[bool] = None  # None = auto-detect from detail_level
     
     # Display settings
     show_info_box: bool = True
@@ -115,8 +116,18 @@ class ReportConfig:
         if self.detail_level == DetailLevel.BU_ONLY:
             self.include_sg_total = False
             self.include_products = False
+            # Auto-enable common size for BU_ONLY if not explicitly set
+            if self.include_common_size is None:
+                self.include_common_size = True
         elif self.detail_level == DetailLevel.BU_SG:
             self.include_products = False
+            # Default: no common size for BU_SG
+            if self.include_common_size is None:
+                self.include_common_size = False
+        else:
+            # BU_SG_PRODUCT: default no common size
+            if self.include_common_size is None:
+                self.include_common_size = False
         # BU_SG_PRODUCT keeps all flags as is
     
     @property
