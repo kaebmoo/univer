@@ -18,6 +18,15 @@ import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
 import { UniverSheetsNumfmtPlugin } from '@univerjs/sheets-numfmt';
 import { UniverSheetsNumfmtUIPlugin } from '@univerjs/sheets-numfmt-ui';
 
+// CSS Imports
+
+import '@univerjs/design/lib/index.css'
+import '@univerjs/ui/lib/index.css'
+import '@univerjs/docs-ui/lib/index.css'
+import '@univerjs/sheets-ui/lib/index.css'
+import '@univerjs/sheets-formula-ui/lib/index.css'
+import '@univerjs/sheets-numfmt-ui/lib/index.css'
+
 const { Title } = Typography;
 
 // This is the actual viewer component
