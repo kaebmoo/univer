@@ -79,28 +79,34 @@ export interface ReportData {
 export interface UniverSnapshot {
   id: string;
   name: string;
-  appVersion: string;
-  locale: string;
-  styles: Record<string, any>;
+  appVersion?: string;
+  locale?: string;
+  styles?: Record<string, any>;
   sheets: Record<string, UniverSheet>;
+  sheetOrder: string[];
 }
 
 export interface UniverSheet {
   id: string;
   name: string;
-  cellData: Record<number, Record<number, UniverCell>>;
+  cellData: Record<string, Record<string, UniverCell>>;
   rowCount: number;
   columnCount: number;
   defaultRowHeight?: number;
   defaultColumnWidth?: number;
+  mergeData?: any[];
+  rowData?: Record<string, { h: number; hd: number }>;
+  columnData?: Record<string, { w: number; hd: number }>;
+  freeze?: any;
 }
 
 export interface UniverCell {
-  v: any;
+  v?: any;
   t?: string;
   s?: string;
   f?: string;
 }
+
 
 // UI State Types
 export interface LoadingState {

@@ -71,7 +71,7 @@ class ReportConfig:
     font_name: str = "TH Sarabun New"
     font_size: int = 18
     header_font_size: int = 18
-    remark_font_size: int = 14
+    remark_font_size: int = 16
     
     # Color settings
     bu_colors: Dict[str, str] = field(default_factory=lambda: {

@@ -135,16 +135,23 @@ class UniverConverter:
         bold: bool = True,
         font_color: str = "#000000",
         h_align: int = 2,  # 1=left, 2=center, 3=right
-        v_align: int = 2   # 1=top, 2=middle, 3=bottom
+        v_align: int = 2,  # 1=top, 2=middle, 3=bottom
+        wrap_text: bool = True  # เพิ่ม text wrap
     ) -> Dict[str, Any]:
         """สร้าง style สำหรับ header"""
-        return {
+        style = {
             "bg": {"rgb": bg_color},
             "bl": 1 if bold else 0,  # bold
             "fc": {"rgb": font_color},  # font color
             "ht": h_align,  # horizontal align
             "vt": v_align,  # vertical align
         }
+        
+        # เพิ่ม text wrap
+        if wrap_text:
+            style["tb"] = 1  # 0=no wrap, 1=wrap, 2=clip
+            
+        return style
 
     def _create_number_style(
         self,
@@ -169,10 +176,13 @@ class UniverConverter:
             number_format = self.NUMBER_FORMATS["currency_parentheses"]
 
         style = {
-            "n": {"pattern": number_format},
             "bl": 1 if bold else 0,
             "ht": 3,  # right align for numbers
+            "vt": 2,  # middle align
         }
+        
+        # เพิ่ม number format - Univer ใช้ key "n" สำหรับ number format
+        style["n"] = {"pattern": number_format}
 
         if bg_color:
             style["bg"] = {"rgb": bg_color}

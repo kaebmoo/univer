@@ -13,7 +13,7 @@ import type {
   ReportFilter,
   ReportData,
   UniverSnapshot,
-} from '../types';
+} from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -119,6 +119,25 @@ class ApiClient {
     });
     return response.data;
   }
+
+  // --- New Methods for Pre-generated Reports ---
+
+  async getReportList(): Promise<string[]> {
+    const response = await this.client.get('/report/reports/list');
+    return response.data;
+  }
+
+  async getReportSnapshot(filename: string): Promise<UniverSnapshot> {
+    const response = await this.client.get(`/report/reports/view/${filename}`);
+    return response.data;
+  }
+
+  async clearReportsCache(): Promise<{ message: string; cleared_count: number }> {
+    const response = await this.client.post('/report/reports/clear-cache');
+    return response.data;
+  }
+
+  // --- End New Methods ---
 
   // ===== Health Check =====
 

@@ -15,6 +15,8 @@ import { UniverSheetsPlugin } from '@univerjs/sheets';
 import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
 import { UniverUIPlugin } from '@univerjs/ui';
+import { UniverSheetsNumfmtPlugin } from '@univerjs/sheets-numfmt';
+import { UniverSheetsNumfmtUIPlugin } from '@univerjs/sheets-numfmt-ui';
 
 import { useReport } from '../contexts/ReportContext';
 
@@ -108,6 +110,10 @@ export const ReportViewer: React.FC = () => {
         // Register Sheets plugins
         univer.registerPlugin(UniverSheetsPlugin);
         univer.registerPlugin(UniverSheetsUIPlugin);
+        
+        // Register Number Format plugins (IMPORTANT: Must be before formula plugins)
+        univer.registerPlugin(UniverSheetsNumfmtPlugin);
+        univer.registerPlugin(UniverSheetsNumfmtUIPlugin);
 
         // Register Formula plugins
         univer.registerPlugin(UniverFormulaEnginePlugin);

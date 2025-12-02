@@ -36,7 +36,7 @@ class UniverConverterCrosstab:
     # Number formats
     NUMBER_FORMATS = {
         "currency": "#,##0.00",
-        "currency_negative": '#,##0.00;[Red](#,##0.00);""',  # บวก: comma separated, ลบ: วงเล็บแดง, 0: ค่าว่าง
+        "currency_negative": "#,##0.00;[Red](#,##0.00)",  # บวก: comma separated, ลบ: วงเล็บแดง
         "percentage": "0.00%",
     }
 
@@ -103,7 +103,8 @@ class UniverConverterCrosstab:
         bg_color: str,
         bold: bool = True,
         font_color: str = "#000000",
-        align_center: bool = True
+        align_center: bool = True,
+        wrap_text: bool = True  # เพิ่ม text wrap parameter
     ) -> Dict[str, Any]:
         """สร้าง style สำหรับ header"""
         style = {
@@ -113,7 +114,12 @@ class UniverConverterCrosstab:
         }
         if align_center:
             style["ht"] = 2  # horizontal align: center
-            style["vt"] = 2  # vertical align: center
+            style["vt"] = 2  # vertical align: middle
+        
+        # เพิ่ม text wrap
+        if wrap_text:
+            style["tb"] = 1  # 1 = wrap text, 0 = no wrap
+        
         return style
 
     def _create_number_style(

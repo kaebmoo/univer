@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     excel_font_name: str = "TH Sarabun New"
     excel_font_size: int = 18
     excel_header_font_size: int = 18
-    excel_remark_font_size: int = 14
+    excel_remark_font_size: int = 16
     excel_info_box_font_size: int = 14
 
     # Report start position
