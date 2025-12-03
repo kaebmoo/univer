@@ -281,7 +281,12 @@ class ExcelToUniverConverter:
                     if cell.data_type == 'n':
                         # Numeric value
                         univer_cell['t'] = 2  # Number type
-                        univer_cell['v'] = cell.value
+                        
+                        if cell.value == 0:
+                            univer_cell['v'] = ""
+                            univer_cell['t'] = 1  # Treat zero as blank string
+                        else:
+                            univer_cell['v'] = cell.value
 
                         # Debug log for numbers with special formats
                         if cell.number_format and cell.number_format != 'General':

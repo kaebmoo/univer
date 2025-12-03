@@ -122,6 +122,6 @@ class HeaderWriter:
             )
             
             # Set row height
-            self.formatter.set_row_height(ws, row + idx, 20)
+            self.formatter.set_row_height(ws, row + idx, 25)
         
         logger.info("Wrote info box (5 lines)")

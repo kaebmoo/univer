@@ -261,14 +261,11 @@ export const ReportListViewer: React.FC = () => {
                     bordered
                     dataSource={reports}
                     renderItem={(item) => (
-                        <List.Item
-                            actions={[
-                                <Button type="primary" onClick={() => handleSelectReport(item)}>
-                                    View
-                                </Button>
-                            ]}
-                        >
-                            <Typography.Text>{item}</Typography.Text>
+                        <List.Item style={{ justifyContent: 'flex-end', gap: '12px', alignItems: 'center' }}>
+                            <span>{item}</span>
+                            <Button type="primary" onClick={() => handleSelectReport(item)} size="medium">
+                                View
+                            </Button>
                         </List.Item>
                     )}
                 />
