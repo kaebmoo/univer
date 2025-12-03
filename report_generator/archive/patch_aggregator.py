@@ -4,16 +4,19 @@ Auto-patch DataAggregator with GLGROUP methods
 Run this to add GLGROUP support to data_aggregator.py
 """
 import sys
+import logging
 from pathlib import Path
 
-print("="*70)
-print("Adding GLGROUP Methods to DataAggregator")
-print("="*70)
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(name)s - %(message)s')
+
+logging.info("="*70)
+logging.info("Adding GLGROUP Methods to DataAggregator")
+logging.info("="*70)
 
 aggregator_file = Path("src/data_loader/data_aggregator.py")
 
 if not aggregator_file.exists():
-    print(f"❌ File not found: {aggregator_file}")
+    logging.error(f"❌ File not found: {aggregator_file}")
     sys.exit(1)
 
 # Read current content
@@ -22,10 +25,10 @@ with open(aggregator_file, 'r', encoding='utf-8') as f:
 
 # Check if already patched
 if 'get_row_data_glgroup' in content:
-    print("✅ Already patched! GLGROUP methods exist.")
+    logging.info("✅ Already patched! GLGROUP methods exist.")
     sys.exit(0)
 
-print("\n📝 Reading GLGROUP methods...")
+logging.info("\n📝 Reading GLGROUP methods...")
 
 # Read the methods to add
 methods_to_add = '''
@@ -195,7 +198,7 @@ for i in range(len(lines) - 1, 0, -1):
         break
 
 if insert_idx == -1:
-    print("❌ Could not find insertion point")
+    logging.error("❌ Could not find insertion point")
     sys.exit(1)
 
 # Insert methods
@@ -207,18 +210,18 @@ backup_file = aggregator_file.with_suffix('.py.backup')
 with open(backup_file, 'w', encoding='utf-8') as f:
     f.write(content)
 
-print(f"💾 Backup saved: {backup_file}")
+logging.info(f"💾 Backup saved: {backup_file}")
 
 # Write patched version
 with open(aggregator_file, 'w', encoding='utf-8') as f:
     f.write(new_content)
 
-print(f"✅ Patched: {aggregator_file}")
-print("\n📊 Added methods:")
-print("  - get_row_data_glgroup()")
-print("  - calculate_summary_row_glgroup()")
-print("  - _sum_rows_glgroup()")
+logging.info(f"✅ Patched: {aggregator_file}")
+logging.info("\n📊 Added methods:")
+logging.info("  - get_row_data_glgroup()")
+logging.info("  - calculate_summary_row_glgroup()")
+logging.info("  - _sum_rows_glgroup()")
 
-print("\n" + "="*70)
-print("✅ GLGROUP METHODS ADDED SUCCESSFULLY!")
-print("="*70)
+logging.info("\n" + "="*70)
+logging.info("✅ GLGROUP METHODS ADDED SUCCESSFULLY!")
+logging.info("="*70)

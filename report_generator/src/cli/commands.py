@@ -3,6 +3,7 @@ CLI Commands Module
 Provides simple function-based interface for report generation
 """
 import sys
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -48,7 +49,7 @@ def generate_report(
     # Load CSV
     csv_loader = CSVLoader(encoding=encoding)
     df = csv_loader.load_csv(csv_path)
-    print(f"Loaded {len(df):,} rows from {csv_path.name}")
+    logging.info(f"Loaded {len(df):,} rows from {csv_path.name}")
     
     # Process data
     data_processor = DataProcessor()

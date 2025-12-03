@@ -3,7 +3,10 @@
 Phase 1 Cleanup Script - Move old excel_generator to archive
 """
 import shutil
+import logging
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(name)s - %(message)s')
 
 def main():
     # Paths
@@ -12,12 +15,12 @@ def main():
     
     # Check if source exists
     if not src_path.exists():
-        print(f"❌ Source not found: {src_path}")
+        logging.error(f"❌ Source not found: {src_path}")
         return
     
     # Check if destination already has README (we just created it)
     if (dest_path / "README.md").exists():
-        print(f"✓ Archive directory ready: {dest_path}")
+        logging.info(f"✓ Archive directory ready: {dest_path}")
     
     # Copy files one by one
     files_to_copy = [
@@ -33,15 +36,15 @@ def main():
         
         if src_file.exists():
             shutil.copy2(src_file, dest_file)
-            print(f"✓ Copied: {file}")
+            logging.info(f"✓ Copied: {file}")
         else:
-            print(f"⚠️  Not found: {file}")
+            logging.warning(f"⚠️  Not found: {file}")
     
-    print("\n" + "="*60)
-    print("✅ Phase 1 Cleanup - Step 2 Complete!")
-    print("="*60)
-    print(f"Archived: {dest_path}")
-    print("\nNext: Remove src/excel_generator (manual)")
+    logging.info("\n" + "="*60)
+    logging.info("✅ Phase 1 Cleanup - Step 2 Complete!")
+    logging.info("="*60)
+    logging.info(f"Archived: {dest_path}")
+    logging.info("\nNext: Remove src/excel_generator (manual)")
 
 if __name__ == "__main__":
     main()

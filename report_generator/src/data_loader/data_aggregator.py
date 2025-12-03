@@ -568,19 +568,17 @@ class DataAggregator:
                 break
         
         if not formula:
-            print(f"⚠️ WARNING: No formula found for calculated row: {label}")
-            logger.warning(f"No formula found for calculated row: {label}")
+            logger.warning(f"⚠️ WARNING: No formula found for calculated row: {label}")
             return {}
         
-        print(f"📊 Calculating GLGROUP row '{label}' with formula: {formula}")
-        logger.info(f"Calculating GLGROUP row '{label}' with formula: {formula}")
-        
-        print(f"  Checking formula: '{formula}'")
-        print(f"  formula == 'sum_group_1': {formula == 'sum_group_1'}")
-        print(f"  Type: {type(formula)}")
+        logger.info(f"📊 Calculating GLGROUP row '{label}' with formula: {formula}")
+
+        logger.debug(f"  Checking formula: '{formula}'")
+        logger.debug(f"  formula == 'sum_group_1': {formula == 'sum_group_1'}")
+        logger.debug(f"  Type: {type(formula)}")
         
         if formula == "sum_group_1":
-            print(f"  → Using sum_group_1 formula")
+            logger.debug(f"  → Using sum_group_1 formula")
             revenue_labels = [
                 "- รายได้กลุ่มธุรกิจโครงสร้างพื้นฐาน",
                 "- รายได้กลุ่มธุรกิจโทรศัพท์ประจำที่และบรอดแบนด์",
@@ -668,17 +666,17 @@ class DataAggregator:
 
     def _sum_rows_glgroup(self, all_row_data: Dict[str, Dict], labels: List[str]) -> Dict[str, float]:
         """Sum multiple rows for GLGROUP"""
-        print(f"    _sum_rows_glgroup called with {len(labels)} labels")
-        print(f"    all_row_data has {len(all_row_data)} keys: {list(all_row_data.keys())[:5]}...")
+        logger.debug(f"    _sum_rows_glgroup called with {len(labels)} labels")
+        logger.debug(f"    all_row_data has {len(all_row_data)} keys: {list(all_row_data.keys())[:5]}...")
         result = {}
         for label in labels:
             if label in all_row_data:
-                print(f"      ✓ Found '{label}' in all_row_data")
+                logger.debug(f"      ✓ Found '{label}' in all_row_data")
                 for key, value in all_row_data[label].items():
                     result[key] = result.get(key, 0) + value
             else:
-                print(f"      ✗ Missing '{label}' in all_row_data")
-        print(f"    _sum_rows_glgroup result: {len(result)} keys")
+                logger.debug(f"      ✗ Missing '{label}' in all_row_data")
+            logger.debug(f"    _sum_rows_glgroup result: {len(result)} keys")
         return result
 
     def _sum_labels_from_db_glgroup(
@@ -701,36 +699,36 @@ class DataAggregator:
         from config.data_mapping_glgroup import get_group_sub_group_glgroup
 
         result = {}
-        print(f"  _sum_labels_from_db_glgroup: Processing {len(labels)} labels")
+        logger.debug(f"  _sum_labels_from_db_glgroup: Processing {len(labels)} labels")
 
         for label in labels:
             # Get GROUP/SUB_GROUP for this label (can be 2-tuple or 3-tuple)
             mapping = get_group_sub_group_glgroup(label)
             
             if not mapping or mapping[0] is None:
-                print(f"    ✗ No mapping for label: '{label}'")
+                logger.debug(f"    ✗ No mapping for label: '{label}'")
                 continue
             
             group = mapping[0]
             sub_group = mapping[1] if len(mapping) > 1 else None
             
             # Skip FORMULA rows
-            if group == "FORMULA":
-                print(f"    ✗ Skipping FORMULA row: '{label}'")
+                if group == "FORMULA":
+                logger.debug(f"    ✗ Skipping FORMULA row: '{label}'")
                 continue
 
             # Query from database
             row_data = self.get_row_data_glgroup(label, bu_list, service_group_dict)
-            print(f"    ✓ Label '{label}': got {len(row_data)} keys")
+            logger.debug(f"    ✓ Label '{label}': got {len(row_data)} keys")
 
             # Sum into result
             for key, value in row_data.items():
                 result[key] = result.get(key, 0) + value
 
-        print(f"  _sum_labels_from_db_glgroup: Result has {len(result)} keys")
+        logger.debug(f"  _sum_labels_from_db_glgroup: Result has {len(result)} keys")
         if result:
             sample_keys = list(result.keys())[:5]
-            print(f"    Sample keys: {sample_keys}")
+            logger.debug(f"    Sample keys: {sample_keys}")
         
         return result
 

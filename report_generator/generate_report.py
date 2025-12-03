@@ -203,42 +203,42 @@ def main():
     args = parser.parse_args()
 
     # Print header
-    print("=" * 70)
-    print("📊 Univer Report Generator")
-    print("=" * 70)
+    logging.info("=" * 70)
+    logging.info("📊 Univer Report Generator")
+    logging.info("=" * 70)
 
     try:
         # 1. Find or validate CSV file
         if args.csv_file:
             csv_path = args.csv_file
             if not csv_path.exists():
-                print(f"❌ Error: CSV file not found: {csv_path}")
+                logging.error(f"❌ Error: CSV file not found: {csv_path}")
                 sys.exit(1)
         else:
-            print(f"\n🔍 Searching for CSV file...")
-            print(f"   Directory: {args.data_dir}")
-            print(f"   Pattern: *{args.report_type}*{args.period}*.csv")
+            logging.info("\n🔍 Searching for CSV file...")
+            logging.info(f"   Directory: {args.data_dir}")
+            logging.info(f"   Pattern: *{args.report_type}*{args.period}*.csv")
             csv_path = find_csv_file(args.data_dir, args.report_type, args.period)
 
-        print(f"\n📄 CSV File: {csv_path.name}")
+        logging.info(f"\n📄 CSV File: {csv_path.name}")
 
         # 2. Load CSV data
-        print(f"\n📥 Loading data...")
+        logging.info(f"\n📥 Loading data...")
         csv_loader = CSVLoader(encoding=args.encoding)
         df = csv_loader.load_csv(csv_path)
-        print(f"   ✅ Loaded {len(df):,} rows")
+        logging.info(f"   ✅ Loaded {len(df):,} rows")
 
         # 3. Process data
-        print(f"\n⚙️  Processing data...")
+        logging.info(f"\n⚙️  Processing data...")
         data_processor = DataProcessor()
         df = data_processor.process_data(df)
-        print(f"   ✅ Data processed")
+        logging.info(f"   ✅ Data processed")
 
         # 4. Create report configuration
-        print(f"\n📋 Report Configuration:")
-        print(f"   Type: {args.report_type}")
-        print(f"   Period: {args.period}")
-        print(f"   Detail Level: {args.detail_level}")
+        logging.info(f"\n📋 Report Configuration:")
+        logging.info(f"   Type: {args.report_type}")
+        logging.info(f"   Period: {args.period}")
+        logging.info(f"   Detail Level: {args.detail_level}")
         
         # Determine common_size setting
         include_common_size = None
@@ -256,7 +256,7 @@ def main():
         )
         
         if config.include_common_size:
-            print(f"   Common Size: Enabled")
+            logging.info(f"   Common Size: Enabled")
 
         # 5. Determine output path
         if args.output:
@@ -283,43 +283,39 @@ def main():
             # Extract date suffix from CSV filename for display
             csv_stem = csv_path.stem
             date_suffix = csv_stem.split('_')[-1] if csv_stem else ''
-            print(f"\n📝 Loaded remarks from: remark_{date_suffix}.txt")
+            logging.info(f"\n📝 Loaded remarks from: remark_{date_suffix}.txt")
 
         # 7. Generate report
-        print(f"\n🔨 Generating Excel report...")
+        logging.info(f"\n🔨 Generating Excel report...")
         builder = ReportBuilder(config)
         result_path = builder.generate_report(df, output_path, remark_content)
 
         # 8. Success!
         file_size = result_path.stat().st_size / 1024  # KB
 
-        print(f"\n✅ Report generated successfully!")
-        print(f"\n📊 Output File:")
-        print(f"   Path: {result_path}")
-        print(f"   Size: {file_size:.1f} KB")
+        logging.info(f"\n✅ Report generated successfully!")
+        logging.info(f"\n📊 Output File:")
+        logging.info(f"   Path: {result_path}")
+        logging.info(f"   Size: {file_size:.1f} KB")
 
-        print("\n" + "=" * 70)
-        print("🎉 Done!")
-        print("=" * 70)
+        logging.info("\n" + "=" * 70)
+        logging.info("🎉 Done!")
+        logging.info("=" * 70)
 
         if args.verbose:
-            print(f"\nFull path: {result_path.absolute()}")
+            logging.info(f"\nFull path: {result_path.absolute()}")
 
         return 0
 
     except FileNotFoundError as e:
-        print(f"\n❌ Error: {e}")
-        print("\n💡 Tip: Use --csv-file to specify the CSV file directly")
+        logging.error(f"\n❌ Error: {e}")
+        logging.info("\n💡 Tip: Use --csv-file to specify the CSV file directly")
         return 1
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        logging.error(f"\n❌ Error: {e}")
         if args.verbose:
-            import traceback
-            print("\n" + "=" * 70)
-            print("Stack Trace:")
-            print("=" * 70)
-            traceback.print_exc()
+            logging.exception("Stack Trace:")
         return 1
 
 

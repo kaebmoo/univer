@@ -5,6 +5,10 @@ Can run both CLI and Web modes
 """
 import sys
 import argparse
+import logging
+
+# configure basic logging for the web entrypoint
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(name)s - %(message)s')
 
 
 def main():
@@ -41,7 +45,7 @@ Examples:
     if args.mode == 'cli':
         # Pass remaining args to CLI
         sys.argv = ['cli.py'] + remaining
-        from src.cli.cli import ReportCLI
+        from report_generator.archive.cli import ReportCLI
         ReportCLI.main()
 
     elif args.mode == 'web':
@@ -49,14 +53,14 @@ Examples:
         import uvicorn
         from config.settings import settings
 
-        print("=" * 60)
-        print("Starting Univer Report Generator Web Server")
-        print("=" * 60)
-        print(f"Host: {settings.web_host}")
-        print(f"Port: {settings.web_port}")
-        print(f"Environment: {settings.app_env}")
-        print(f"API Docs: http://localhost:{settings.web_port}/api/docs")
-        print("=" * 60)
+        logging.info("=" * 60)
+        logging.info("Starting Univer Report Generator Web Server")
+        logging.info("=" * 60)
+        logging.info(f"Host: {settings.web_host}")
+        logging.info(f"Port: {settings.web_port}")
+        logging.info(f"Environment: {settings.app_env}")
+        logging.info(f"API Docs: http://localhost:{settings.web_port}/api/docs")
+        logging.info("=" * 60)
 
         uvicorn.run(
             "src.web.main:app",
