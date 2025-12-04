@@ -12,6 +12,7 @@ Enhanced P&L Reconciliation Script
 
 import pandas as pd
 import os
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -458,23 +459,26 @@ class ReconciliationEngine:
 def main():
     """ฟังก์ชันหลักสำหรับรันการตรวจสอบ"""
 
+    # ใช้ตำแหน่งของไฟล์นี้เป็นฐานในการหา path
+    script_dir = Path(__file__).parent
+
     # กำหนด Configuration สำหรับรายเดือน (MTH)
     config_mth = FileConfig(
         period_type=PeriodType.MTH,
-        report_excel='report_generator/reconciliation/Report_NT_202510.xlsx',
-        source_cost_csv='report_generator/reconciliation/TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv',
-        source_gl_csv='report_generator/reconciliation/TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv',
-        financial_stmt_txt='report_generator/reconciliation/pld_nt_20251031.txt'
+        report_excel=str(script_dir / 'Report_NT_202510.xlsx'),
+        source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv'),
+        source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
+        financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
     )
 
     # กำหนด Configuration สำหรับสะสม (YTD)
     # หมายเหตุ: ใช้ไฟล์งบการเงินเดียวกันกับ MTH เพราะมีทั้ง 2 column (เดือนและสะสม) อยู่ในไฟล์เดียว
     config_ytd = FileConfig(
         period_type=PeriodType.YTD,
-        report_excel='report_generator/reconciliation/Report_NT_2025.xlsx',
-        source_cost_csv='report_generator/reconciliation/TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv',
-        source_gl_csv='report_generator/reconciliation/TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv',
-        financial_stmt_txt='report_generator/reconciliation/pld_nt_20251031.txt'  # ใช้ไฟล์เดียวกัน แต่จะอ่าน column ที่ 2
+        report_excel=str(script_dir / 'Report_NT_2025.xlsx'),
+        source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv'),
+        source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
+        financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')  # ใช้ไฟล์เดียวกัน แต่จะอ่าน column ที่ 2
     )
 
     # รันการตรวจสอบทั้งสองงวด
