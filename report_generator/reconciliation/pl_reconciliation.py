@@ -6,9 +6,9 @@ import os
 # ==========================================
 
 # ชื่อไฟล์ Excel (แก้ชื่อไฟล์ตรงนี้)
-FILE_REPORT_MONTHLY = 'Report_NT_202510.xlsx'  
-FILE_SOURCE_GL = 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv' # ไฟล์ Source ยังคงเป็น CSV
-FILE_STMT_TXT = 'pld_nt_20251031.txt'
+FILE_REPORT_MONTHLY = 'report_generator/reconciliation/Report_NT_202510.xlsx'  
+FILE_SOURCE_GL = 'report_generator/reconciliation/TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv' # ไฟล์ Source ยังคงเป็น CSV
+FILE_STMT_TXT = 'report_generator/reconciliation/pld_nt_20251031.txt'
 
 # ชื่อ Sheet ในไฟล์ Excel (ต้องสะกดให้ตรงเป๊ะกับในไฟล์)
 SHEETS = {
@@ -68,7 +68,8 @@ try:
     df_rep_gl   = pd.read_excel(FILE_REPORT_MONTHLY, sheet_name=SHEETS['gl_biz'], header=None)
     
     # 2. อ่านไฟล์ Source & Text
-    df_src_gl = pd.read_csv(FILE_SOURCE_GL)
+    print(f"กำลังอ่านข้อมูลจากไฟล์ csv: {FILE_SOURCE_GL} ...")
+    df_src_gl = pd.read_csv(FILE_SOURCE_GL, encoding='cp874')
     with open(FILE_STMT_TXT, 'r', encoding='cp874') as f:
         txt_lines = f.readlines()
 
