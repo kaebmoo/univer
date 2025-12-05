@@ -12,7 +12,9 @@ Enhanced P&L Reconciliation Script
 
 import pandas as pd
 import os
+import argparse
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -30,6 +32,12 @@ class DimensionType(Enum):
     """ประเภทมิติการรายงาน"""
     COST_TYPE = "COST"   # มิติประเภทต้นทุน
     GL_GROUP = "GL"      # มิติหมวดบัญชี
+
+class ValidationMode(Enum):
+    """ระดับการตรวจสอบ"""
+    BASIC = "basic"              # ตรวจแค่ Net Profit (Phase 1)
+    ENHANCED = "enhanced"        # ตรวจ Revenue, Expense, Net Profit + Internal Math (Phase 2)
+    COMPREHENSIVE = "comprehensive"  # ตรวจทุกอย่างรวมถึง Drill-Down (Phase 3)
 
 @dataclass
 class FileConfig:
@@ -206,8 +214,9 @@ class ReconciliationResult:
 class ReconciliationEngine:
     """Engine สำหรับการตรวจสอบความสอดคล้อง"""
 
-    def __init__(self, config: FileConfig):
+    def __init__(self, config: FileConfig, validation_mode: ValidationMode = ValidationMode.ENHANCED):
         self.config = config
+        self.validation_mode = validation_mode
         self.results: List[ReconciliationResult] = []
 
         # Load ข้อมูลทั้งหมด
@@ -227,10 +236,15 @@ class ReconciliationEngine:
 
         # 1. ค่าจาก Source CSV (Cost Type)
         if self.source_cost_df is not None:
-            # ใช้เลขนำหน้าเพื่อให้แม่นยำ
-            values['src_cost_revenue'] = self.source_cost_df[
+            # รายได้รวม = รายได้บริการ + ผลตอบแทนทางการเงินและรายได้อื่น
+            revenue_service = self.source_cost_df[
                 self.source_cost_df['GROUP'].str.contains('01.รายได้', na=False, regex=False)
             ]['VALUE'].sum()
+            revenue_other = self.source_cost_df[
+                self.source_cost_df['GROUP'].str.contains('09.ผลตอบแทนทางการเงินและรายได้อื่น', na=False, regex=False)
+            ]['VALUE'].sum()
+            values['src_cost_revenue'] = revenue_service + revenue_other
+
             values['src_cost_expense'] = self.source_cost_df[
                 self.source_cost_df['GROUP'].str.contains('ค่าใช้จ่าย|ต้นทุน', na=False)
             ]['VALUE'].sum()
@@ -264,20 +278,27 @@ class ReconciliationEngine:
         for sheet_key, label in sheet_keys:
             df = self.excel_sheets.get(sheet_key)
             if df is not None:
-                # รายได้ - สำหรับ Cost Type ใช้ "รายได้บริการ", สำหรับ GL Group ใช้ "รวมรายได้"
-                if 'cost' in sheet_key:
-                    revenue = get_val_from_df(df, ['รายได้บริการ'])
-                    if revenue is None:
-                        revenue = get_val_from_df(df, ['1.รายได้'])
-                else:
+                # รายได้ - ทั้ง Cost Type และ GL Group ต้องใช้ "รวมรายได้" หรือ "รายได้รวม"
+                # เพื่อให้เทียบกันได้ (รวมทั้งรายได้บริการ + ผลตอบแทนทางการเงินและรายได้อื่น)
+                revenue = get_val_from_df(df, ['รายได้รวม'])
+                if revenue is None:
                     revenue = get_val_from_df(df, ['รวมรายได้'])
-                    if revenue is None:
-                        revenue = get_val_from_df(df, ['1', 'รายได้'])
+                if revenue is None:
+                    revenue = get_val_from_df(df, ['1', 'รายได้'])
                 values[f'rep_{sheet_key}_revenue'] = revenue
 
-                # ค่าใช้จ่าย
-                expense = get_val_from_df(df, ['ค่าใช้จ่ายรวม'])
+                # ค่าใช้จ่าย (รวมต้นทุนทางการเงิน)
+                # ต้องหา "ค่าใช้จ่ายรวม (รวมต้นทุนทางการเงิน)" ไม่ใช่ "ค่าใช้จ่ายรวม (ไม่รวมต้นทุนทางการเงิน)"
+                expense = get_val_from_df(df, ['ค่าใช้จ่ายรวม (รวมต้นทุนทางการเงิน)'])
+                if expense is None:
+                    expense = get_val_from_df(df, ['ค่าใช้จ่ายรวม'])
                 values[f'rep_{sheet_key}_expense'] = expense
+
+                # ภาษีเงินได้นิติบุคคล
+                tax = get_val_from_df(df, ['ภาษีเงินได้นิติบุคคล'])
+                if tax is None:
+                    tax = get_val_from_df(df, ['13.ภาษีเงินได้นิติบุคคล'])
+                values[f'rep_{sheet_key}_tax'] = tax
 
                 # กำไรสุทธิ
                 net_profit = get_val_from_df(df, ['กำไร', 'สุทธิ'])
@@ -296,7 +317,7 @@ class ReconciliationEngine:
     def run_all_checks(self):
         """รันการตรวจสอบทั้งหมด"""
         print(f"\n{'='*80}")
-        print(f"เริ่มการตรวจสอบ: {self.config.period_type.value}")
+        print(f"เริ่มการตรวจสอบ: {self.config.period_type.value} [Mode: {self.validation_mode.value.upper()}]")
         print(f"{'='*80}\n")
 
         values = self.extract_values()
@@ -319,6 +340,12 @@ class ReconciliationEngine:
         print("-" * 80)
 
         self._check_cross_sheet_consistency(values)
+
+        # Phase 2: ตรวจสอบ Internal Math
+        if self.validation_mode in [ValidationMode.ENHANCED, ValidationMode.COMPREHENSIVE]:
+            print("\n🧮 ระดับที่ 2d: ตรวจสอบการคำนวณภายใน (Internal Math)")
+            print("-" * 80)
+            self._check_internal_math(values)
 
         # ======== ระดับที่ 3: ตรวจสอบ Tie-out กับงบการเงิน ========
         print("\n✓ ระดับที่ 3: ตรวจสอบ Tie-out (Financial Statement)")
@@ -396,17 +423,87 @@ class ReconciliationEngine:
         ]
 
         for cost_key, gl_key, label in pairs:
+            # Phase 2: ตรวจ Revenue (Enhanced mode)
+            if self.validation_mode in [ValidationMode.ENHANCED, ValidationMode.COMPREHENSIVE]:
+                cost_revenue = values.get(f'rep_{cost_key}_revenue')
+                gl_revenue = values.get(f'rep_{gl_key}_revenue')
+
+                if cost_revenue is not None and gl_revenue is not None:
+                    self.results.append(ReconciliationResult(
+                        check_name=f"2a. Cross-Sheet Revenue: {label}",
+                        description=f"รายได้ของ Cost Type ({label}) ต้องเท่ากับ GL Group ({label})",
+                        value1=cost_revenue,
+                        value1_label=f"Cost Type - {label}",
+                        value2=gl_revenue,
+                        value2_label=f"GL Group - {label}",
+                        tolerance=10.0
+                    ))
+
+            # Phase 2: ตรวจ Expense (Enhanced mode)
+            if self.validation_mode in [ValidationMode.ENHANCED, ValidationMode.COMPREHENSIVE]:
+                cost_expense = values.get(f'rep_{cost_key}_expense')
+                gl_expense = values.get(f'rep_{gl_key}_expense')
+
+                if cost_expense is not None and gl_expense is not None:
+                    self.results.append(ReconciliationResult(
+                        check_name=f"2b. Cross-Sheet Expense: {label}",
+                        description=f"ค่าใช้จ่ายของ Cost Type ({label}) ต้องเท่ากับ GL Group ({label})",
+                        value1=cost_expense,
+                        value1_label=f"Cost Type - {label}",
+                        value2=gl_expense,
+                        value2_label=f"GL Group - {label}",
+                        tolerance=10.0
+                    ))
+
+            # Phase 1: ตรวจ Net Profit (ทุก mode)
             cost_net_profit = values.get(f'rep_{cost_key}_net_profit')
             gl_net_profit = values.get(f'rep_{gl_key}_net_profit')
 
             if cost_net_profit is not None and gl_net_profit is not None:
                 self.results.append(ReconciliationResult(
-                    check_name=f"2. Cross-Sheet: {label}",
+                    check_name=f"2c. Cross-Sheet Net Profit: {label}",
                     description=f"กำไรสุทธิของ Cost Type ({label}) ต้องเท่ากับ GL Group ({label})",
                     value1=cost_net_profit,
                     value1_label=f"Cost Type - {label}",
                     value2=gl_net_profit,
                     value2_label=f"GL Group - {label}"
+                ))
+
+    def _check_internal_math(self, values: Dict[str, float]):
+        """ตรวจสอบการคำนวณภายใน: Revenue - Expense - Tax = Net Profit"""
+        if self.validation_mode not in [ValidationMode.ENHANCED, ValidationMode.COMPREHENSIVE]:
+            return
+
+        # ตรวจทุก Sheet
+        sheet_keys = [
+            ('cost_biz', 'Cost Type - กลุ่มธุรกิจ'),
+            ('cost_service_group', 'Cost Type - กลุ่มบริการ'),
+            ('cost_service', 'Cost Type - บริการ'),
+            ('gl_biz', 'GL Group - กลุ่มธุรกิจ'),
+            ('gl_service_group', 'GL Group - กลุ่มบริการ'),
+            ('gl_service', 'GL Group - บริการ')
+        ]
+
+        for sheet_key, label in sheet_keys:
+            revenue = values.get(f'rep_{sheet_key}_revenue')
+            expense = values.get(f'rep_{sheet_key}_expense')
+            tax = values.get(f'rep_{sheet_key}_tax')
+            net_profit = values.get(f'rep_{sheet_key}_net_profit')
+
+            if revenue is not None and expense is not None and net_profit is not None:
+                # สูตร: รายได้รวม - ค่าใช้จ่ายรวม - ภาษี = กำไรสุทธิ
+                # expense และ tax เป็นค่าบวก ดังนั้นต้องลบออก
+                tax_amount = abs(tax) if tax is not None else 0
+                calculated_profit = revenue - abs(expense) - tax_amount
+
+                self.results.append(ReconciliationResult(
+                    check_name=f"2d. Internal Math: {label}",
+                    description=f"Revenue - Expense - Tax = Net Profit ใน {label}",
+                    value1=calculated_profit,
+                    value1_label="Revenue - Expense - Tax",
+                    value2=net_profit,
+                    value2_label="Net Profit (in report)",
+                    tolerance=10.0
                 ))
 
     def _check_financial_tieout(self, values: Dict[str, float]):
@@ -459,40 +556,120 @@ class ReconciliationEngine:
 def main():
     """ฟังก์ชันหลักสำหรับรันการตรวจสอบ"""
 
+    # Argument Parser
+    parser = argparse.ArgumentParser(
+        description='โปรแกรมตรวจสอบความถูกต้องและความสอดคล้องของรายงาน P&L',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Validation Modes:
+  basic          - ตรวจแค่ Net Profit (Phase 1)
+  enhanced       - ตรวจ Revenue, Expense, Net Profit + Internal Math (Phase 2) [DEFAULT]
+  comprehensive  - ตรวจทุกอย่างรวมถึง Drill-Down (Phase 3)
+
+Examples:
+  # ระบุวันที่ (แนะนำ - ไม่ต้องแก้โค้ด)
+  python pl_reconciliation_enhanced.py --date 20251031
+  python pl_reconciliation_enhanced.py --date 20251130 --mode basic
+
+  # ใช้ค่า default (ต้องแก้โค้ดทุกครั้ง)
+  python pl_reconciliation_enhanced.py --mode enhanced
+        """
+    )
+    parser.add_argument(
+        '--date',
+        type=str,
+        help='วันที่รายงาน ในรูปแบบ YYYYMMDD (เช่น 20251031) - ถ้าไม่ระบุจะใช้ค่าที่กำหนดในโค้ด'
+    )
+    parser.add_argument(
+        '--mode',
+        type=str,
+        choices=['basic', 'enhanced', 'comprehensive'],
+        default='enhanced',
+        help='ระดับการตรวจสอบ (default: enhanced)'
+    )
+    parser.add_argument(
+        '--company',
+        type=str,
+        default='NT',
+        help='รหัสบริษัท (default: NT)'
+    )
+
+    args = parser.parse_args()
+    validation_mode = ValidationMode(args.mode)
+
     # ใช้ตำแหน่งของไฟล์นี้เป็นฐานในการหา path
     script_dir = Path(__file__).parent
 
-    # กำหนด Configuration สำหรับรายเดือน (MTH)
-    config_mth = FileConfig(
-        period_type=PeriodType.MTH,
-        report_excel=str(script_dir / 'Report_NT_202510.xlsx'),
-        source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv'),
-        source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
-        financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
-    )
+    # ถ้าระบุ --date ให้สร้างชื่อไฟล์อัตโนมัติ
+    if args.date:
+        # Validate date format
+        try:
+            date_obj = datetime.strptime(args.date, '%Y%m%d')
+            year = date_obj.strftime('%Y')
+            month = date_obj.strftime('%Y%m')
+            company = args.company
 
-    # กำหนด Configuration สำหรับสะสม (YTD)
-    # หมายเหตุ: ใช้ไฟล์งบการเงินเดียวกันกับ MTH เพราะมีทั้ง 2 column (เดือนและสะสม) อยู่ในไฟล์เดียว
-    config_ytd = FileConfig(
-        period_type=PeriodType.YTD,
-        report_excel=str(script_dir / 'Report_NT_2025.xlsx'),
-        source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv'),
-        source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
-        financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')  # ใช้ไฟล์เดียวกัน แต่จะอ่าน column ที่ 2
-    )
+            # กำหนด Configuration สำหรับรายเดือน (MTH)
+            config_mth = FileConfig(
+                period_type=PeriodType.MTH,
+                report_excel=str(script_dir / f'Report_{company}_{month}.xlsx'),
+                source_cost_csv=str(script_dir / f'TRN_PL_COSTTYPE_{company}_MTH_TABLE_{args.date}.csv'),
+                source_gl_csv=str(script_dir / f'TRN_PL_GLGROUP_{company}_MTH_TABLE_{args.date}.csv'),
+                financial_stmt_txt=str(script_dir / f'pld_{company.lower()}_{args.date}.txt')
+            )
+
+            # กำหนด Configuration สำหรับสะสม (YTD)
+            config_ytd = FileConfig(
+                period_type=PeriodType.YTD,
+                report_excel=str(script_dir / f'Report_{company}_{year}.xlsx'),
+                source_cost_csv=str(script_dir / f'TRN_PL_COSTTYPE_{company}_YTD_TABLE_{args.date}.csv'),
+                source_gl_csv=str(script_dir / f'TRN_PL_GLGROUP_{company}_YTD_TABLE_{args.date}.csv'),
+                financial_stmt_txt=str(script_dir / f'pld_{company.lower()}_{args.date}.txt')
+            )
+
+            print(f"\n📅 วันที่รายงาน: {date_obj.strftime('%d/%m/%Y')}")
+            print(f"🏢 บริษัท: {company}")
+
+        except ValueError:
+            print(f"❌ รูปแบบวันที่ไม่ถูกต้อง: {args.date}")
+            print("   กรุณาใช้รูปแบบ YYYYMMDD (เช่น 20251031)")
+            return
+    else:
+        # ใช้ค่า default (วิธีเดิม - ต้องแก้โค้ดทุกครั้ง)
+        print("\n⚠️  กำลังใช้ค่า default ที่กำหนดในโค้ด")
+        print("   แนะนำ: ใช้ --date เพื่อไม่ต้องแก้โค้ดทุกครั้ง")
+
+        # กำหนด Configuration สำหรับรายเดือน (MTH)
+        config_mth = FileConfig(
+            period_type=PeriodType.MTH,
+            report_excel=str(script_dir / 'Report_NT_202510.xlsx'),
+            source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv'),
+            source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
+            financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
+        )
+
+        # กำหนด Configuration สำหรับสะสม (YTD)
+        config_ytd = FileConfig(
+            period_type=PeriodType.YTD,
+            report_excel=str(script_dir / 'Report_NT_2025.xlsx'),
+            source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv'),
+            source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
+            financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
+        )
 
     # รันการตรวจสอบทั้งสองงวด
     print("\n" + "="*100)
     print("โปรแกรมตรวจสอบความถูกต้องและความสอดคล้องของรายงาน P&L".center(100))
+    print(f"Validation Mode: {validation_mode.value.upper()}".center(100))
     print("="*100)
 
     # ตรวจสอบรายเดือน (MTH)
-    engine_mth = ReconciliationEngine(config_mth)
+    engine_mth = ReconciliationEngine(config_mth, validation_mode)
     engine_mth.run_all_checks()
     engine_mth.print_results()
 
     # ตรวจสอบสะสม (YTD)
-    engine_ytd = ReconciliationEngine(config_ytd)
+    engine_ytd = ReconciliationEngine(config_ytd, validation_mode)
     engine_ytd.run_all_checks()
     engine_ytd.print_results()
 
