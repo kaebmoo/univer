@@ -73,7 +73,7 @@ class HeaderWriter:
         
         # Line 2: Report title
         cell = ws.cell(row=row + 2, column=col + 1)
-        cell.value = f"รายงานผลดำเนินงาน{self.config.detail_level_thai} - {self.config.report_type_thai}"
+        cell.value = f"รายงานผลดำเนินงาน{self.config.detail_level_thai} - {self.config.report_type_thai} แบบ Cost Allocation: Activity-Based Costing "
         cell.font = self.formatter.create_font(
             bold=True,
             size=self.config.header_font_size

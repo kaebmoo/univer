@@ -713,7 +713,7 @@ class DataAggregator:
             sub_group = mapping[1] if len(mapping) > 1 else None
             
             # Skip FORMULA rows
-                if group == "FORMULA":
+            if group == "FORMULA":
                 logger.debug(f"    ✗ Skipping FORMULA row: '{label}'")
                 continue
 

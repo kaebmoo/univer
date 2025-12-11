@@ -23,6 +23,8 @@ from enum import Enum
 # Configuration Classes
 # ==========================================
 
+TOLERANCE = 0.001  # ความคลาดเคลื่อนที่ยอมรับได้
+
 class PeriodType(Enum):
     """ประเภทงวดเวลา"""
     MTH = "MTH"  # รายเดือน
@@ -368,7 +370,7 @@ class ReconciliationEngine:
                 value1_label="Source CSV (Cost)",
                 value2=values.get(revenue_key, 0),
                 value2_label=f"Report {sheet_key}",
-                tolerance=10.0  # เพิ่ม tolerance เล็กน้อยเนื่องจากอาจมีการปัดเศษ
+                tolerance=TOLERANCE  # เพิ่ม tolerance เล็กน้อยเนื่องจากอาจมีการปัดเศษ
             ))
 
         # ตรวจกำไรสุทธิ
@@ -398,7 +400,7 @@ class ReconciliationEngine:
                 value1_label="Source CSV (GL)",
                 value2=values.get(revenue_key, 0),
                 value2_label=f"Report {sheet_key}",
-                tolerance=10.0
+                tolerance=TOLERANCE
             ))
 
         # ตรวจกำไรสุทธิ
@@ -436,7 +438,7 @@ class ReconciliationEngine:
                         value1_label=f"Cost Type - {label}",
                         value2=gl_revenue,
                         value2_label=f"GL Group - {label}",
-                        tolerance=10.0
+                        tolerance=TOLERANCE
                     ))
 
             # Phase 2: ตรวจ Expense (Enhanced mode)
@@ -452,7 +454,7 @@ class ReconciliationEngine:
                         value1_label=f"Cost Type - {label}",
                         value2=gl_expense,
                         value2_label=f"GL Group - {label}",
-                        tolerance=10.0
+                        tolerance=TOLERANCE
                     ))
 
             # Phase 1: ตรวจ Net Profit (ทุก mode)
@@ -491,10 +493,12 @@ class ReconciliationEngine:
             net_profit = values.get(f'rep_{sheet_key}_net_profit')
 
             if revenue is not None and expense is not None and net_profit is not None:
-                # สูตร: รายได้รวม - ค่าใช้จ่ายรวม - ภาษี = กำไรสุทธิ
-                # expense และ tax เป็นค่าบวก ดังนั้นต้องลบออก
-                tax_amount = abs(tax) if tax is not None else 0
-                calculated_profit = revenue - abs(expense) - tax_amount
+                # สูตร: รายได้รวม - ค่าใช้จ่ายรวม (รวมต้นทุนทางการเงิน) - ภาษี = กำไรสุทธิ
+                # หมายเหตุ: "ค่าใช้จ่ายรวม (รวมต้นทุนทางการเงิน)" ไม่รวมภาษี ต้องหักภาษีแยก
+                # ภาษีในรายงานเป็นค่าลบอยู่แล้ว ดังนั้นต้อง "ลบ" ค่าลบ (ลบติดลบเป็นบวก)
+                # ตัวอย่าง: Revenue - Expense - (-Tax) = Revenue - Expense + Tax
+                tax_amount = tax if tax is not None else 0
+                calculated_profit = revenue - abs(expense) - tax_amount  # ลบค่าลบ = บวก
 
                 self.results.append(ReconciliationResult(
                     check_name=f"2d. Internal Math: {label}",
@@ -503,7 +507,7 @@ class ReconciliationEngine:
                     value1_label="Revenue - Expense - Tax",
                     value2=net_profit,
                     value2_label="Net Profit (in report)",
-                    tolerance=10.0
+                    tolerance=TOLERANCE
                 ))
 
     def _check_financial_tieout(self, values: Dict[str, float]):
@@ -621,7 +625,7 @@ Examples:
             # กำหนด Configuration สำหรับสะสม (YTD)
             config_ytd = FileConfig(
                 period_type=PeriodType.YTD,
-                report_excel=str(script_dir / f'Report_{company}_{year}.xlsx'),
+                report_excel=str(script_dir / f'Report_{company}_YTD_{month}.xlsx'),
                 source_cost_csv=str(script_dir / f'TRN_PL_COSTTYPE_{company}_YTD_TABLE_{args.date}.csv'),
                 source_gl_csv=str(script_dir / f'TRN_PL_GLGROUP_{company}_YTD_TABLE_{args.date}.csv'),
                 financial_stmt_txt=str(script_dir / f'pld_{company.lower()}_{args.date}.txt')
@@ -651,7 +655,7 @@ Examples:
         # กำหนด Configuration สำหรับสะสม (YTD)
         config_ytd = FileConfig(
             period_type=PeriodType.YTD,
-            report_excel=str(script_dir / 'Report_NT_2025.xlsx'),
+            report_excel=str(script_dir / 'Report_NT_YTD_202510.xlsx'),
             source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv'),
             source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
             financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')

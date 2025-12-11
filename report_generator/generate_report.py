@@ -34,6 +34,7 @@ import argparse
 import logging
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -49,8 +50,22 @@ from src.report_generator import ReportBuilder, ReportConfig
 from config.settings import settings
 
 
-def find_csv_file(data_dir: Path, report_type: str, period_type: str) -> Path:
-    """Find the most recent CSV file matching criteria"""
+def find_csv_file(data_dir: Path, report_type: str, period_type: str, month: Optional[str] = None) -> Path:
+    """
+    Find the most recent CSV file matching criteria
+
+    Args:
+        data_dir: Directory to search for CSV files
+        report_type: Report type (COSTTYPE or GLGROUP)
+        period_type: Period type (MTH or YTD)
+        month: Optional month filter in YYYYMM format (e.g., '202509')
+
+    Returns:
+        Path to the selected CSV file
+
+    Raises:
+        FileNotFoundError: If no matching file is found
+    """
     pattern = f"*{report_type}*{period_type}*.csv"
     files = sorted(data_dir.glob(pattern), reverse=True)
 
@@ -60,6 +75,22 @@ def find_csv_file(data_dir: Path, report_type: str, period_type: str) -> Path:
             f"Search directory: {data_dir}"
         )
 
+    # If month is specified, filter files by month
+    if month:
+        # Filter files that contain the month string (YYYYMM format)
+        filtered_files = [f for f in files if month in f.name]
+
+        if not filtered_files:
+            raise FileNotFoundError(
+                f"No CSV file found for month {month}\n"
+                f"Pattern: {pattern}\n"
+                f"Search directory: {data_dir}\n"
+                f"Available files: {[f.name for f in files[:3]]}"
+            )
+
+        return filtered_files[0]
+
+    # No month filter - return most recent file
     return files[0]
 
 
@@ -176,6 +207,14 @@ def main():
         help='Detail level (default: BU_SG_PRODUCT - full details)'
     )
 
+    # Month filter
+    parser.add_argument(
+        '--month',
+        '-m',
+        type=str,
+        help='Specific month to process (YYYYMM format, e.g., 202509). Only used when --csv-file is not specified.'
+    )
+
     # Options
     parser.add_argument(
         '--common-size',
@@ -218,7 +257,9 @@ def main():
             logging.info("\n🔍 Searching for CSV file...")
             logging.info(f"   Directory: {args.data_dir}")
             logging.info(f"   Pattern: *{args.report_type}*{args.period}*.csv")
-            csv_path = find_csv_file(args.data_dir, args.report_type, args.period)
+            if args.month:
+                logging.info(f"   Month Filter: {args.month}")
+            csv_path = find_csv_file(args.data_dir, args.report_type, args.period, args.month)
 
         logging.info(f"\n📄 CSV File: {csv_path.name}")
 
