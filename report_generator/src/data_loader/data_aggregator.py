@@ -17,6 +17,11 @@ from config.data_mapping import (
     DEPRECIATION_CATEGORIES,
     PERSONNEL_CATEGORIES
 )
+from config.satellite_config import (
+    ENABLE_SATELLITE_SPLIT,
+    get_satellite_service_group_names,
+    SATELLITE_SUMMARY_ID
+)
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +294,23 @@ class DataAggregator:
                 sg_key = f"{bu}_{sg}"
                 result[sg_key] = self.get_value(group, sub_group, bu, sg)
 
+            # Add SATELLITE summary key (for ratio calculations)
+            if ENABLE_SATELLITE_SPLIT:
+                satellite_sgs = get_satellite_service_group_names()
+                # Check if any satellite SG exists in this BU's service groups
+                has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                if has_satellite:
+                    # Calculate satellite summary
+                    satellite_sum = sum(
+                        self.get_value(group, sub_group, bu, sg)
+                        for sg in satellite_sgs
+                        if sg in service_groups
+                    )
+                    # Use the same key format as satellite_summary column
+                    summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                    result[summary_key] = satellite_sum
+                    logger.debug(f"get_row_data: Added satellite summary key '{summary_key}' = {satellite_sum:,.2f}")
+
         # Grand total
         result["GRAND_TOTAL"] = self.get_value(group, sub_group, None, None)
 
@@ -422,12 +444,29 @@ class DataAggregator:
 
         elif calc_type == "total_service_cost":
             # Total service cost (GROUP 02)
-            return self._sum_by_group("02.ต้นทุนบริการและต้นทุนขาย :", bu_list, service_group_dict)
+            result = self._sum_by_group("02.ต้นทุนบริการและต้นทุนขาย :", bu_list, service_group_dict)
+            # Log satellite summary key
+            bu = "4.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
+            sat_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+            if sat_key in result:
+                logger.debug(f"total_service_cost: Satellite summary key '{sat_key}' = {result[sat_key]:,.2f}")
+            else:
+                logger.warning(f"total_service_cost: Satellite summary key '{sat_key}' NOT FOUND in result")
+            return result
 
         elif calc_type == "total_service_cost_ratio":
             # Ratio = total_service_cost / service_revenue
             service_revenue = all_row_data.get("รายได้บริการ", {})
             total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
+            # Log satellite summary key
+            bu = "4.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
+            sat_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+            logger.debug(f"total_service_cost_ratio: total_cost has {len(total_cost)} keys")
+            if sat_key in total_cost:
+                logger.debug(f"total_service_cost_ratio: Satellite summary key '{sat_key}' = {total_cost[sat_key]:,.2f}")
+            else:
+                logger.warning(f"total_service_cost_ratio: Satellite summary key '{sat_key}' NOT FOUND in total_cost")
+                logger.debug(f"total_service_cost_ratio: Available keys: {list(total_cost.keys())[:10]}")
             return self._calculate_ratio(total_cost, service_revenue)
 
         elif calc_type == "service_cost_no_depreciation":
@@ -446,6 +485,19 @@ class DataAggregator:
                 for sg in service_groups:
                     sg_key = f"{bu}_{sg}"
                     result[sg_key] = self.get_value(group, depreciation_category, bu, sg)
+
+                # Add SATELLITE summary
+                if ENABLE_SATELLITE_SPLIT:
+                    satellite_sgs = get_satellite_service_group_names()
+                    has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                    if has_satellite:
+                        satellite_sum = sum(
+                            self.get_value(group, depreciation_category, bu, sg)
+                            for sg in satellite_sgs
+                            if sg in service_groups
+                        )
+                        summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                        result[summary_key] = satellite_sum
 
             result["GRAND_TOTAL"] = self.get_value(group, depreciation_category, None, None)
             return result
@@ -476,6 +528,19 @@ class DataAggregator:
                     sg_key = f"{bu}_{sg}"
                     depreciation[sg_key] = self.get_value(group, depreciation_category, bu, sg)
 
+                # Add SATELLITE summary
+                if ENABLE_SATELLITE_SPLIT:
+                    satellite_sgs = get_satellite_service_group_names()
+                    has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                    if has_satellite:
+                        satellite_sum = sum(
+                            self.get_value(group, depreciation_category, bu, sg)
+                            for sg in satellite_sgs
+                            if sg in service_groups
+                        )
+                        summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                        depreciation[summary_key] = satellite_sum
+
             depreciation["GRAND_TOTAL"] = self.get_value(group, depreciation_category, None, None)
 
             result = {}
@@ -490,66 +555,6 @@ class DataAggregator:
 
         return result
     # ==================== GLGROUP METHODS ====================
-    
-    def get_row_data_glgroup(
-        self,
-        label: str,
-        bu_list: List[str],
-        service_group_dict: Dict[str, List[str]]
-    ) -> Dict[str, float]:
-        """
-        Get row data for GLGROUP dimension
-        Uses GROUP/SUB_GROUP from data directly
-        Supports optional SERVICE_GROUP filter for detail rows
-        """
-        from config.data_mapping_glgroup import get_group_sub_group_glgroup
-        
-        mapping = get_group_sub_group_glgroup(label)
-        
-        if not mapping or len(mapping) < 2:
-            return {}
-        
-        group = mapping[0]
-        sub_group = mapping[1]
-        service_group_filter = mapping[2] if len(mapping) > 2 else None
-        
-        if not group:
-            return {}
-        
-        # Filter by GROUP and SUB_GROUP
-        filtered = self.df[
-            (self.df['GROUP'] == group) & 
-            (self.df['SUB_GROUP'] == sub_group)
-        ]
-        
-        # Additional SERVICE_GROUP filter for detail rows
-        if service_group_filter:
-            filtered = filtered[filtered['SERVICE_GROUP'] == service_group_filter]
-        
-        if len(filtered) == 0:
-            logger.info(f"No data for GLGROUP: {group} / {sub_group}" + 
-                       (f" / {service_group_filter}" if service_group_filter else ""))
-            return {}
-        
-        result = {}
-        result['GRAND_TOTAL'] = filtered['VALUE'].sum()
-        
-        for bu in bu_list:
-            bu_data = filtered[filtered['BU'] == bu]
-            bu_total = bu_data['VALUE'].sum()
-            result[f'BU_TOTAL_{bu}'] = bu_total
-            
-            if bu in service_group_dict:
-                for sg in service_group_dict[bu]:
-                    sg_data = bu_data[bu_data['SERVICE_GROUP'] == sg]
-                    sg_total = sg_data['VALUE'].sum()
-                    result[f'SG_TOTAL_{bu}_{sg}'] = sg_total
-                    
-                    products = sg_data.groupby('PRODUCT_KEY')['VALUE'].sum()
-                    for product_key, value in products.items():
-                        result[f'PRODUCT_{bu}_{sg}_{product_key}'] = value
-        
-        return result
 
     def calculate_summary_row_glgroup(
         self,
@@ -750,6 +755,18 @@ class DataAggregator:
                 sg_key = f"{bu}_{sg}"
                 result[sg_key] = self.get_value(group, None, bu, sg)
 
+            # Add SATELLITE summary key
+            if ENABLE_SATELLITE_SPLIT:
+                satellite_sgs = get_satellite_service_group_names()
+                has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                if has_satellite:
+                    satellite_sum = sum(
+                        self.get_value(group, None, bu, sg)
+                        for sg in satellite_sgs
+                        if sg in service_groups
+                    )
+                    result[f"{bu}_{SATELLITE_SUMMARY_ID}"] = satellite_sum
+
         result["GRAND_TOTAL"] = self.get_value(group, None, None, None)
 
         return result
@@ -833,6 +850,19 @@ class DataAggregator:
                     for sg in service_groups:
                         sg_key = f"{bu}_{sg}"
                         result[sg_key] = result.get(sg_key, 0) + self.get_value(group, pers_category, bu, sg)
+
+                    # Add SATELLITE summary
+                    if ENABLE_SATELLITE_SPLIT:
+                        satellite_sgs = get_satellite_service_group_names()
+                        has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                        if has_satellite:
+                            satellite_sum = sum(
+                                self.get_value(group, pers_category, bu, sg)
+                                for sg in satellite_sgs
+                                if sg in service_groups
+                            )
+                            summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                            result[summary_key] = result.get(summary_key, 0) + satellite_sum
 
                 result["GRAND_TOTAL"] = result.get("GRAND_TOTAL", 0) + self.get_value(group, pers_category, None, None)
 
@@ -1150,12 +1180,86 @@ class DataAggregator:
                     sg_data = bu_data[bu_data['SERVICE_GROUP'] == sg]
                     sg_total = sg_data['VALUE'].sum()
                     result[f'SG_TOTAL_{bu}_{sg}'] = sg_total
-                    
+                    # Also add key for satellite_summary compatibility
+                    result[f'{bu}_{sg}'] = sg_total
+
                     products = sg_data.groupby('PRODUCT_KEY')['VALUE'].sum()
                     for product_key, value in products.items():
                         result[f'PRODUCT_{bu}_{sg}_{product_key}'] = value
-        
+
+                # Add SATELLITE summary key for GLGROUP
+                if ENABLE_SATELLITE_SPLIT:
+                    satellite_sgs = get_satellite_service_group_names()
+                    service_groups = service_group_dict[bu]
+                    has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                    if has_satellite:
+                        satellite_sum = sum(
+                            bu_data[bu_data['SERVICE_GROUP'] == sg]['VALUE'].sum()
+                            for sg in satellite_sgs
+                            if sg in service_groups
+                        )
+                        summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                        result[summary_key] = satellite_sum
+
         return result
+
+    def get_satellite_summary(
+        self,
+        group: str,
+        sub_group: Optional[str],
+        bu: str
+    ) -> float:
+        """
+        Get sum of SATELLITE service groups (4.5.1 + 4.5.2)
+
+        Used by: BU_SG and BU_SG_PRODUCT detail levels
+        Works for: BOTH COSTTYPE and GLGROUP report types
+
+        Args:
+            group: GROUP value
+            sub_group: SUB_GROUP value
+            bu: BU value
+
+        Returns:
+            Sum of all SATELLITE service groups
+        """
+        satellite_sgs = get_satellite_service_group_names()
+
+        total = 0
+        for sg in satellite_sgs:
+            total += self.get_value(group, sub_group, bu, sg)
+
+        return total
+
+    def get_satellite_summary_product(
+        self,
+        group: str,
+        sub_group: Optional[str],
+        bu: str,
+        product_key: str
+    ) -> float:
+        """
+        Get sum of SATELLITE service groups for a specific product
+
+        Used by: BU_SG_PRODUCT detail level only
+        Works for: BOTH COSTTYPE and GLGROUP report types
+
+        Args:
+            group: GROUP value
+            sub_group: SUB_GROUP value
+            bu: BU value
+            product_key: PRODUCT_KEY value
+
+        Returns:
+            Sum across SATELLITE service groups for this product
+        """
+        satellite_sgs = get_satellite_service_group_names()
+
+        total = 0
+        for sg in satellite_sgs:
+            total += self.get_value_by_product(group, sub_group, bu, sg, product_key)
+
+        return total
 
     def _get_row_data_flexible(self, all_row_data: Dict[str, Dict], label: str) -> Dict[str, float]:
         """

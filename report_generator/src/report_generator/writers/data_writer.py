@@ -425,6 +425,27 @@ class DataWriter:
             # Common Size column - calculate percentage of รายได้รวม
             return self._calculate_common_size(col, row_data, all_row_data, label)
 
+        elif col_type == 'satellite_summary':
+            # NEW: Handle SATELLITE summary column
+            # Try to get from row_data first (works for both GLGROUP and COSTTYPE calculated rows)
+            from config.satellite_config import SATELLITE_SUMMARY_ID
+            summary_key = f"{col.bu}_{SATELLITE_SUMMARY_ID}"
+            if summary_key in row_data:
+                return row_data.get(summary_key, 0)
+
+            # Fallback: use _get_satellite_summary_value (for rows not in row_data)
+            value = self._get_satellite_summary_value(
+                col,
+                label,
+                aggregator,
+                all_row_data,
+                current_main_group_label
+            )
+            # Debug logging for ratio rows
+            if "สัดส่วน" in label or "ต้นทุนบริการรวม" in label:
+                logger.debug(f"satellite_summary for '{label}': {value}")
+            return value
+
         elif col_type == 'sg_total' or col_type == 'sg':
             # GLGROUP uses SG_TOTAL_{bu}_{sg}, COSTTYPE uses {bu}_{sg}
             if is_glgroup:
@@ -582,6 +603,106 @@ class DataWriter:
             
             return value
     
+    def _get_satellite_summary_value(
+        self,
+        col: ColumnDef,
+        label: str,
+        aggregator: DataAggregator,
+        all_row_data: Dict,
+        current_main_group_label: str
+    ) -> Optional[float]:
+        """
+        Get value for SATELLITE summary column (sum of 4.5.1 + 4.5.2)
+
+        Works for BOTH COSTTYPE and GLGROUP report types.
+
+        Args:
+            col: Column definition
+            label: Row label
+            aggregator: DataAggregator
+            all_row_data: All row data (for calculated rows)
+            current_main_group_label: Main group context
+
+        Returns:
+            Sum of SATELLITE service groups
+        """
+        import sys
+        from pathlib import Path
+
+        # Add config path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+        from config.data_mapping import get_group_sub_group, is_calculated_row
+        from config.satellite_config import get_satellite_service_group_names
+
+        # Check report type first
+        from config.report_config import ReportType
+        # Handle both enum and string types
+        if isinstance(self.config.report_type, str):
+            is_glgroup = self.config.report_type == "GLGROUP"
+        else:
+            is_glgroup = self.config.report_type == ReportType.GLGROUP
+
+        if is_glgroup:
+            # GLGROUP - ALWAYS use all_row_data (all GLGROUP rows are aggregated)
+            from config.satellite_config import SATELLITE_SUMMARY_ID
+            summary_key = f"{col.bu}_{SATELLITE_SUMMARY_ID}"
+
+            # Use flexible lookup with main_group context
+            if label in all_row_data:
+                row_dict = all_row_data[label]
+            else:
+                row_dict = {}
+                # Try exact composite key first (main_group|label)
+                if current_main_group_label:
+                    exact_key = f"{current_main_group_label}|{label}"
+                    if exact_key in all_row_data:
+                        row_dict = all_row_data[exact_key]
+
+                # If still not found, try flexible lookup (any key ending with |label)
+                if not row_dict:
+                    for storage_key in all_row_data:
+                        if storage_key.endswith(f"|{label}"):
+                            row_dict = all_row_data[storage_key]
+                            break
+
+            value = row_dict.get(summary_key, 0)
+            if value is None:
+                return 0
+            return value
+        else:
+            # COSTTYPE - check if calculated or data row
+            calculated = is_calculated_row(label)
+
+            if calculated:
+                # Calculated row - use satellite summary key directly
+                from config.satellite_config import SATELLITE_SUMMARY_ID
+                summary_key = f"{col.bu}_{SATELLITE_SUMMARY_ID}"
+
+                # Use flexible lookup to handle composite keys
+                # Try direct key first
+                if label in all_row_data:
+                    row_dict = all_row_data[label]
+                else:
+                    # Try composite keys (main_group|label)
+                    row_dict = {}
+                    for storage_key in all_row_data:
+                        if storage_key.endswith(f"|{label}"):
+                            row_dict = all_row_data[storage_key]
+                            break
+
+                value = row_dict.get(summary_key, 0)
+
+                # Handle None values
+                if value is None:
+                    return 0
+                return value
+            else:
+                # Data row - use aggregator
+                group, sub_group = get_group_sub_group(label, current_main_group_label)
+                if group:
+                    return aggregator.get_satellite_summary(group, sub_group, col.bu)
+                return 0
+
     def _calculate_product_value_glgroup(
         self,
         col: ColumnDef,

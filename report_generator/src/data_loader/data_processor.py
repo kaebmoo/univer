@@ -68,6 +68,9 @@ class DataProcessor:
             if col in df.columns:
                 df[col] = df[col].astype(str)
 
+        # Split SATELLITE service group (if enabled)
+        df = self._split_satellite_service_group(df)
+
         return df
 
     def create_pivot_by_bu_service(
@@ -289,3 +292,85 @@ class DataProcessor:
             period_desc = f"ประจำเดือน {month_name} {buddhist_year}"
 
         return period_desc, months
+
+    def _split_satellite_service_group(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Split SATELLITE service group into sub-groups based on PRODUCT_KEY
+
+        This splits '4.5 กลุ่มบริการ SATELLITE' into:
+        - 4.5.1 กลุ่มบริการ Satellite-NT
+        - 4.5.2 กลุ่มบริการ Satellite-ไทยคม
+
+        Works for BOTH COSTTYPE and GLGROUP report types.
+
+        Args:
+            df: DataFrame with SERVICE_GROUP and PRODUCT_KEY columns
+
+        Returns:
+            DataFrame with updated SERVICE_GROUP column
+        """
+        import sys
+        from pathlib import Path
+
+        # Add config path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+        from config.satellite_config import (
+            ENABLE_SATELLITE_SPLIT,
+            SATELLITE_SOURCE_NAME,
+            get_service_group_for_product_key
+        )
+
+        # Check if feature is enabled
+        if not ENABLE_SATELLITE_SPLIT:
+            logger.info("SATELLITE split is disabled in config")
+            return df
+
+        # Check required columns
+        if 'SERVICE_GROUP' not in df.columns:
+            logger.warning("SERVICE_GROUP column not found - skipping SATELLITE split")
+            return df
+
+        if 'PRODUCT_KEY' not in df.columns:
+            logger.warning("PRODUCT_KEY column not found - skipping SATELLITE split")
+            return df
+
+        # Find SATELLITE rows
+        satellite_mask = df['SERVICE_GROUP'] == SATELLITE_SOURCE_NAME
+
+        if not satellite_mask.any():
+            logger.info(f"No '{SATELLITE_SOURCE_NAME}' found - skipping split")
+            return df
+
+        logger.info(f"Found {satellite_mask.sum()} SATELLITE rows - splitting...")
+
+        # Split based on PRODUCT_KEY
+        updated_count = 0
+        unmatched_count = 0
+        unmatched_keys = set()
+
+        for idx in df[satellite_mask].index:
+            product_key = df.loc[idx, 'PRODUCT_KEY']
+            new_sg = get_service_group_for_product_key(product_key)
+
+            if new_sg:
+                df.loc[idx, 'SERVICE_GROUP'] = new_sg
+                updated_count += 1
+            else:
+                unmatched_count += 1
+                unmatched_keys.add(str(product_key))
+
+        # Log results
+        logger.info(f"SATELLITE split complete:")
+        logger.info(f"  ✓ Updated: {updated_count} rows")
+
+        if unmatched_count > 0:
+            logger.warning(f"  ⚠ Unmatched: {unmatched_count} rows")
+            logger.warning(f"    Product keys: {sorted(unmatched_keys)}")
+
+        # Count by new groups
+        from config.satellite_config import get_satellite_service_group_names
+        for sg_name in get_satellite_service_group_names():
+            count = (df['SERVICE_GROUP'] == sg_name).sum()
+            logger.info(f"  → {sg_name}: {count} rows")
+
+        return df

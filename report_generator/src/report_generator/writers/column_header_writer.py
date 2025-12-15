@@ -318,7 +318,27 @@ class ColumnHeaderWriter:
                 ws.merge_cells(start_row=start_row + 2, start_column=col_index + 1,
                                end_row=start_row + 4, end_column=col_index + 1)
                 ws.column_dimensions[get_column_letter(col_index + 1)].width = col.width
-                
+
+                bu_end_col = col_index
+                current_col += 1
+                column_idx += 1
+                continue
+
+            # SATELLITE summary column (virtual column showing sum of SATELLITE groups)
+            if col.col_type == 'satellite_summary':
+                cell = ws.cell(row=start_row + 2, column=col_index + 1)
+                cell.value = col.name
+                cell.font = Font(name=font_name, size=font_size, bold=True)
+                cell.fill = PatternFill(start_color=col.color, end_color=col.color, fill_type="solid")
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.border = Border(
+                    left=Side(style='thin'), right=Side(style='thin'),
+                    top=Side(style='thin'), bottom=Side(style='thin')
+                )
+                ws.merge_cells(start_row=start_row + 2, start_column=col_index + 1,
+                               end_row=start_row + 4, end_column=col_index + 1)
+                ws.column_dimensions[get_column_letter(col_index + 1)].width = col.width
+
                 bu_end_col = col_index
                 current_col += 1
                 column_idx += 1
