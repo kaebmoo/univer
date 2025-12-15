@@ -87,6 +87,10 @@ def copy_sheet_with_formatting(source_file_path, target_workbook, sheet_name):
     for merged_cell_range in source_sheet.merged_cells.ranges:
         new_sheet.merge_cells(str(merged_cell_range))
 
+    # Copy freeze panes
+    if source_sheet.freeze_panes:
+        new_sheet.freeze_panes = source_sheet.freeze_panes
+
     source_wb.close()
 
 
