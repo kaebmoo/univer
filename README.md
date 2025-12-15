@@ -334,10 +334,8 @@ This project is licensed under the MIT License.
 ## 📞 Support
 
 หากพบปัญหาหรือมีคำถาม:
-- 📧 Email: support@company.com
-- 💬 Teams/Slack: #univer-support
-- 📝 Create an issue: [GitHub Issues](https://github.com/your-repo/issues)
+- 📝 Create an issue: [GitHub Issues](https://github.com/kaebmoo/univer/issues)
 
 ---
 
-Made with ❤️ by [Your Company]
+Made with ❤️ by กูเอง
