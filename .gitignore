@@ -192,3 +192,4 @@ report_generator/output/archive/correct_report.pdf
 report_generator/reconciliation/pld_nt_20251031.txt
 *.txt
 report_generator/reconciliation/km.md
+.claude/settings.local.json

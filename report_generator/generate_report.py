@@ -308,7 +308,14 @@ def main():
             # ใหม่: ดึงค่า TIME_KEY จากข้อมูล
             if 'TIME_KEY' in df.columns and not df.empty:
                 # ดึงค่าจากแถวแรก (iloc[0]) มาแปลงเป็น string และตัดช่องว่าง
-                time_key = str(df['TIME_KEY'].iloc[0]).strip()
+                # แปลงเป็น int ก่อนเพื่อกำจัด .0 (กรณี pandas แปลงเป็น float)
+                time_key_value = df['TIME_KEY'].iloc[0]
+                try:
+                    # Try to convert to int to remove decimal point
+                    time_key = str(int(float(time_key_value)))
+                except (ValueError, TypeError):
+                    # Fallback to string conversion if not numeric
+                    time_key = str(time_key_value).strip()
             else:
                 # Fallback: ถ้าไม่มี column TIME_KEY หรือไม่มีข้อมูล ให้ใช้เวลาปัจจุบันเหมือนเดิม
                 time_key = datetime.now().strftime("%Y%m%d_%H%M%S")

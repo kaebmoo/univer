@@ -44,6 +44,10 @@ class CSVLoader:
         try:
             logger.info(f"Loading {file_path} with encoding {self.encoding}")
             df = pd.read_csv(file_path, encoding=self.encoding)
+
+            # Remove completely empty rows (all columns are NaN)
+            df = df.dropna(how='all')
+
             logger.info(f"Successfully loaded {len(df)} rows from {file_path.name}")
             return df
         except UnicodeDecodeError:
@@ -56,6 +60,10 @@ class CSVLoader:
             try:
                 logger.info(f"Trying encoding: {enc}")
                 df = pd.read_csv(file_path, encoding=enc)
+
+                # Remove completely empty rows (all columns are NaN)
+                df = df.dropna(how='all')
+
                 logger.info(f"Successfully loaded with {enc}")
                 return df
             except UnicodeDecodeError:

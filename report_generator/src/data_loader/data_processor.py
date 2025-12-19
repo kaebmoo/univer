@@ -19,14 +19,35 @@ class DataProcessor:
         """
         Create a sort key for natural sorting of strings like '1.10', '1.2'.
         Example: '1.10. some text' -> [1, 10]
+
+        Handles edge cases:
+        - NaN values (converted to string 'nan' on Windows)
+        - Empty strings
+        - Non-numeric strings
         """
+        # Handle None, NaN, and empty string cases
+        if not s or s == 'nan' or (isinstance(s, float) and pd.isna(s)):
+            return [float('inf')]  # Sort NaN values to the end
+
+        # Convert to string if not already
+        s = str(s).strip()
+
         # Extracts numbers at the beginning of the string, separated by dots.
         match = re.match(r'^[0-9\.]+', s)
         if not match:
             return [s]  # Return the string itself if no numeric prefix
-        
+
         # Split by dot and convert to int for numerical sorting
-        return [int(text) for text in match.group(0).split('.') if text.isdigit()]
+        # Use try-except to handle any unexpected conversion errors
+        result = []
+        for text in match.group(0).split('.'):
+            if text.isdigit():
+                try:
+                    result.append(int(text))
+                except ValueError:
+                    result.append(text)
+
+        return result if result else [s]
 
     def __init__(self):
         """Initialize data processor"""
@@ -55,8 +76,13 @@ class DataProcessor:
 
         # Parse TIME_KEY if exists
         if 'TIME_KEY' in df.columns:
-            df['YEAR'] = df['TIME_KEY'].astype(str).str[:4].astype(int)
-            df['MONTH'] = df['TIME_KEY'].astype(str).str[4:6].astype(int)
+            # Handle NaN values by filtering them out before conversion
+            # On Windows, pandas may convert NaN to string 'nan' which causes int() conversion to fail
+            time_key_str = df['TIME_KEY'].astype(str)
+
+            # Convert to int, using pd.to_numeric to handle 'nan' strings gracefully
+            df['YEAR'] = pd.to_numeric(time_key_str.str[:4], errors='coerce').fillna(0).astype(int)
+            df['MONTH'] = pd.to_numeric(time_key_str.str[4:6], errors='coerce').fillna(0).astype(int)
 
         # Ensure VALUE column is numeric
         if 'VALUE' in df.columns:

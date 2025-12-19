@@ -91,12 +91,12 @@ class BUSGProductBuilder(BaseColumnBuilder):
             product_dict[bu] = {}
             for sg in service_group_dict[bu]:
                 products = data[
-                    (data['BU'] == bu) & 
+                    (data['BU'] == bu) &
                     (data['SERVICE_GROUP'] == sg)
-                ][['PRODUCT_KEY', 'PRODUCT_NAME']].sort_values(
+                ][['PRODUCT_KEY', 'PRODUCT_NAME']].dropna().sort_values(
                     by='PRODUCT_KEY'
                 ).drop_duplicates()
-                
+
                 product_dict[bu][sg] = list(
                     products.itertuples(index=False, name=None)
                 )
