@@ -75,14 +75,14 @@ class ReportConfig:
     
     # Color settings
     bu_colors: Dict[str, str] = field(default_factory=lambda: {
-        '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE': 'E2EFDA',
-        '2.กลุ่มธุรกิจ INTERNATIONAL': 'DDEBF7',
-        '3.กลุ่มธุรกิจ MOBILE': 'DBD3E5',
-        '4.กลุ่มธุรกิจ FIXED LINE & BROADBAND': 'FCE4D6',
-        '5.กลุ่มธุรกิจ DIGITAL': 'D9E1F2',
-        '6.กลุ่มธุรกิจ ICT SOLUTION': 'C6E0B4',
-        '7.กลุ่มบริการอื่นไม่ใช่โทรคมนาคม': 'BDD7EE',
-        '8.รายได้อื่น/ค่าใช้จ่ายอื่น': 'EAC1C0',
+        '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE': 'E2EFDA',
+        '02.กลุ่มธุรกิจ INTERNATIONAL': 'DDEBF7',
+        '03.กลุ่มธุรกิจ MOBILE': 'DBD3E5',
+        '04.กลุ่มธุรกิจ FIXED LINE & BROADBAND': 'FCE4D6',
+        '05.กลุ่มธุรกิจ DIGITAL': 'D9E1F2',
+        '06.กลุ่มธุรกิจ ICT SOLUTION': 'C6E0B4',
+        '07.กลุ่มบริการอื่นไม่ใช่โทรคมนาคม': 'BDD7EE',
+        '08.รายได้อื่น/ค่าใช้จ่ายอื่น': 'EAC1C0',
     })
     
     row_colors: Dict[str, str] = field(default_factory=lambda: {
@@ -174,6 +174,45 @@ class ReportConfig:
             row_colors=data.get('row_colors', {}),
         )
     
+    def get_bu_color(self, bu: str) -> str:
+        """
+        Get color for a BU with flexible matching
+
+        Handles variations in BU names:
+        - Exact match: '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE'
+        - With/without leading zero: '1.' <-> '01.'
+
+        Args:
+            bu: BU name (e.g., '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE' or '1.กลุ่มธุรกิจ...')
+
+        Returns:
+            Color hex code (without #)
+        """
+        if not bu:
+            return 'FFFFFF'
+
+        # Try exact match first
+        if bu in self.bu_colors:
+            return self.bu_colors[bu]
+
+        # Try normalizing BU name
+        # Check if starts with number + dot
+        if len(bu) >= 2 and bu[1] == '.':
+            if bu[0:2].isdigit():
+                # Has 2-digit prefix like "01."
+                normalized = bu[1:]  # Remove first char: "01." -> "1."
+            elif bu[0].isdigit():
+                # Has 1-digit prefix like "1."
+                normalized = '0' + bu  # Add leading zero: "1." -> "01."
+            else:
+                return 'FFFFFF'
+
+            if normalized in self.bu_colors:
+                return self.bu_colors[normalized]
+
+        # Default fallback
+        return 'FFFFFF'
+
     @classmethod
     def create_default(
         cls,
@@ -183,12 +222,12 @@ class ReportConfig:
     ) -> 'ReportConfig':
         """
         Create config with default settings
-        
+
         Args:
             report_type: Report type (COSTTYPE or GLGROUP)
             period_type: Period type (MTH or YTD)
             detail_level: Detail level (BU_ONLY, BU_SG, BU_SG_PRODUCT)
-        
+
         Returns:
             ReportConfig with default settings
         """

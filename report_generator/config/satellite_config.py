@@ -77,7 +77,7 @@ def get_service_group_for_product_key(product_key: str):
     Get service group name for a given product key
 
     Args:
-        product_key: PRODUCT_KEY value
+        product_key: PRODUCT_KEY value (may be string or float like 102010401.0)
 
     Returns:
         Service group name or None if not found
@@ -85,7 +85,12 @@ def get_service_group_for_product_key(product_key: str):
     if not ENABLE_SATELLITE_SPLIT:
         return None
 
+    # Convert to string and handle float format (e.g., '102010401.0' -> '102010401')
     product_key_str = str(product_key).strip()
+
+    # Remove .0 suffix if present (pandas may convert to float)
+    if product_key_str.endswith('.0'):
+        product_key_str = product_key_str[:-2]
 
     for group_config in SATELLITE_GROUPS.values():
         if product_key_str in group_config['product_keys']:

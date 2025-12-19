@@ -49,6 +49,37 @@ class DataProcessor:
 
         return result if result else [s]
 
+    @staticmethod
+    def _normalize_bu_name(bu: str) -> str:
+        """
+        Normalize BU name to always have leading zero (01., 02., etc.)
+
+        This ensures consistent key generation across all components.
+
+        Args:
+            bu: BU name (e.g., '1.กลุ่มธุรกิจ...' or '01.กลุ่มธุรกิจ...')
+
+        Returns:
+            Normalized BU name with leading zero (e.g., '01.กลุ่มธุรกิจ...')
+
+        Examples:
+            '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE' -> '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE'
+            '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE' -> '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE'
+            'nan' -> 'nan' (unchanged)
+        """
+        if not bu or bu == 'nan' or (isinstance(bu, float) and pd.isna(bu)):
+            return bu
+
+        bu = str(bu).strip()
+
+        # Check if starts with single digit + dot (e.g., "1.", "2.")
+        if len(bu) >= 2 and bu[0].isdigit() and bu[1] == '.':
+            # Add leading zero
+            return '0' + bu
+
+        # Already has leading zero or different format
+        return bu
+
     def __init__(self):
         """Initialize data processor"""
         pass
@@ -93,6 +124,12 @@ class DataProcessor:
         for col in categorical_cols:
             if col in df.columns:
                 df[col] = df[col].astype(str)
+
+        # Normalize BU names to always have leading zero (01., 02., etc.)
+        # This ensures consistent key generation in data_aggregator
+        if 'BU' in df.columns:
+            df['BU'] = df['BU'].apply(self._normalize_bu_name)
+            logger.info(f"Normalized BU names: {df['BU'].unique()[:5]}")
 
         # Split SATELLITE service group (if enabled)
         df = self._split_satellite_service_group(df)

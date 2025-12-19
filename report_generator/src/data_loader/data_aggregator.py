@@ -445,8 +445,8 @@ class DataAggregator:
         elif calc_type == "total_service_cost":
             # Total service cost (GROUP 02)
             result = self._sum_by_group("02.ต้นทุนบริการและต้นทุนขาย :", bu_list, service_group_dict)
-            # Log satellite summary key
-            bu = "4.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
+            # Log satellite summary key (use normalized BU name with leading zero)
+            bu = "04.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
             sat_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
             if sat_key in result:
                 logger.debug(f"total_service_cost: Satellite summary key '{sat_key}' = {result[sat_key]:,.2f}")
@@ -458,8 +458,8 @@ class DataAggregator:
             # Ratio = total_service_cost / service_revenue
             service_revenue = all_row_data.get("รายได้บริการ", {})
             total_cost = all_row_data.get("     1. ต้นทุนบริการรวม", {})
-            # Log satellite summary key
-            bu = "4.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
+            # Log satellite summary key (use normalized BU name with leading zero)
+            bu = "04.กลุ่มธุรกิจ FIXED LINE & BROADBAND"
             sat_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
             logger.debug(f"total_service_cost_ratio: total_cost has {len(total_cost)} keys")
             if sat_key in total_cost:

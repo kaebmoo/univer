@@ -13,10 +13,44 @@ logger = logging.getLogger(__name__)
 
 class ColumnHeaderWriter:
     """Write column headers - EXACT match to main_generator.py"""
-    
+
     def __init__(self, config, formatter):
         self.config = config
         self.formatter = formatter
+
+    @staticmethod
+    def _remove_leading_zero(text: str) -> str:
+        """
+        Remove leading zero from BU/SG names for display
+
+        Examples:
+            '01.กลุ่มธุรกิจ HARD INFRASTRUCTURE' -> '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE'
+            '1.1 กลุ่มบริการ...' -> '1.1 กลุ่มบริการ...' (no change)
+            'รวม 01.กลุ่มธุรกิจ...' -> 'รวม 1.กลุ่มธุรกิจ...'
+
+        Args:
+            text: Text that may contain leading zeros
+
+        Returns:
+            Text with leading zeros removed
+        """
+        if not text:
+            return text
+
+        # Handle "รวม XX.กลุ่มธุรกิจ..." format
+        if text.startswith('รวม ') and len(text) > 7:
+            prefix = 'รวม '
+            main_text = text[5:]  # After "รวม "
+        else:
+            prefix = ''
+            main_text = text
+
+        # Check if starts with "0X." pattern
+        if len(main_text) >= 3 and main_text[0] == '0' and main_text[1].isdigit() and main_text[2] == '.':
+            # Remove leading zero: "01." -> "1."
+            main_text = main_text[1:]
+
+        return prefix + main_text
     
     def write(self, ws, columns: List[ColumnDef]):
         """
@@ -139,7 +173,7 @@ class ColumnHeaderWriter:
                 if current_bu and bu_first_sg_col is not None and bu_end_col is not None:
                     if bu_end_col >= bu_first_sg_col:
                         bu_header_cell = ws.cell(row=start_row + 1, column=bu_first_sg_col + 1)
-                        bu_header_cell.value = current_bu
+                        bu_header_cell.value = self._remove_leading_zero(current_bu)
                         bu_header_cell.font = Font(name=font_name, size=font_size, bold=True)
                         bu_header_cell.fill = PatternFill(start_color=bu_color, end_color=bu_color, fill_type="solid")
                         bu_header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -155,7 +189,7 @@ class ColumnHeaderWriter:
                     # Row 1: BU name (without "รวม") merged across amount + common size
                     header_cell = ws.cell(row=start_row + 1, column=col_index + 1)
                     # Remove "รวม " prefix from col.name
-                    bu_display_name = col.bu  # Use BU name directly
+                    bu_display_name = self._remove_leading_zero(col.bu)  # Use BU name directly without leading zero
                     header_cell.value = bu_display_name
                     header_cell.font = Font(name=font_name, size=font_size, bold=True)
                     header_cell.fill = PatternFill(start_color=col.color, end_color=col.color, fill_type="solid")
@@ -190,7 +224,7 @@ class ColumnHeaderWriter:
                 else:
                     # Original behavior: single merged cell
                     cell = ws.cell(row=start_row + 1, column=col_index + 1)
-                    cell.value = col.name
+                    cell.value = self._remove_leading_zero(col.name)
                     cell.font = Font(name=font_name, size=font_size, bold=True)
                     cell.fill = PatternFill(start_color=col.color, end_color=col.color, fill_type="solid")
                     cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -284,7 +318,7 @@ class ColumnHeaderWriter:
                 # Write SG header (row 2 only, merged across products)
                 if products_written > 0:
                     sg_header_cell = ws.cell(row=start_row + 2, column=sg_total_col + 2)
-                    sg_header_cell.value = sg_name  # ← ชื่อ SG ไม่ใช่ "รวม SG"
+                    sg_header_cell.value = self._remove_leading_zero(sg_name)  # ← ชื่อ SG ไม่ใช่ "รวม SG"
                     sg_header_cell.font = Font(name=font_name, size=font_size, bold=True)
                     sg_header_cell.fill = PatternFill(start_color=sg_color, end_color=sg_color, fill_type="solid")
                     sg_header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -348,7 +382,7 @@ class ColumnHeaderWriter:
         if current_bu and bu_first_sg_col is not None and bu_end_col is not None:
             if bu_end_col >= bu_first_sg_col:
                 bu_header_cell = ws.cell(row=start_row + 1, column=bu_first_sg_col + 1)
-                bu_header_cell.value = current_bu
+                bu_header_cell.value = self._remove_leading_zero(current_bu)
                 bu_header_cell.font = Font(name=font_name, size=font_size, bold=True)
                 bu_header_cell.fill = PatternFill(start_color=bu_color, end_color=bu_color, fill_type="solid")
                 bu_header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)

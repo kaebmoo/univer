@@ -127,7 +127,7 @@ class BUSGBuilder(BaseColumnBuilder):
                 product_key=None,
                 product_name=None,
                 width=18,
-                color=self.config.bu_colors.get(bu, 'FFFFFF')
+                color=self.config.get_bu_color(bu)
             )
             bu_columns.append(col)
 
@@ -146,7 +146,7 @@ class BUSGBuilder(BaseColumnBuilder):
                         product_key=None,
                         product_name=None,
                         width=18,
-                        color=self.config.bu_colors.get(bu, 'FFFFFF')
+                        color=self.config.get_bu_color(bu)
                     )
                     bu_columns.append(sat_col)
 
@@ -179,7 +179,7 @@ class BUSGBuilder(BaseColumnBuilder):
             product_key=None,
             product_name=None,
             width=18,
-            color=self.config.bu_colors.get(bu, 'FFFFFF')
+            color=self.config.get_bu_color(bu)
         )
     
     def get_column_mapping(self, columns: List[ColumnDef]) -> dict:

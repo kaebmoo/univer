@@ -121,7 +121,7 @@ class BaseColumnBuilder(ABC):
             col_type='bu_total',
             bu=bu,
             width=18,
-            color=self.config.bu_colors.get(bu, 'FFFFFF')
+            color=self.config.get_bu_color(bu)
         )
     
     def _create_sg_total_column(self, bu: str, sg: str) -> ColumnDef:
@@ -141,7 +141,7 @@ class BaseColumnBuilder(ABC):
             bu=bu,
             service_group=sg,
             width=18,
-            color=self.config.bu_colors.get(bu, 'FFFFFF')
+            color=self.config.get_bu_color(bu)
         )
     
     def _create_product_column(
@@ -171,7 +171,7 @@ class BaseColumnBuilder(ABC):
             product_key=product_key,
             product_name=product_name,
             width=18,
-            color=self.config.bu_colors.get(bu, 'FFFFFF')
+            color=self.config.get_bu_color(bu)
         )
     
     def _create_common_size_column(self, bu: str = None) -> ColumnDef:
@@ -189,5 +189,5 @@ class BaseColumnBuilder(ABC):
             col_type='common_size',
             bu=bu,
             width=12,
-            color=self.config.bu_colors.get(bu, 'FFFFFF') if bu else 'FFFFFF'
+            color=self.config.get_bu_color(bu) if bu else 'FFFFFF'
         )
