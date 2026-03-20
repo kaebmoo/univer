@@ -817,6 +817,19 @@ class DataAggregator:
                         sg_key = f"{bu}_{sg}"
                         result[sg_key] = result.get(sg_key, 0) + self.get_value(group, dep_category, bu, sg)
 
+                    # Add SATELLITE summary
+                    if ENABLE_SATELLITE_SPLIT:
+                        satellite_sgs = get_satellite_service_group_names()
+                        has_satellite = any(sg in satellite_sgs for sg in service_groups)
+                        if has_satellite:
+                            satellite_sum = sum(
+                                self.get_value(group, dep_category, bu, sg)
+                                for sg in satellite_sgs
+                                if sg in service_groups
+                            )
+                            summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
+                            result[summary_key] = result.get(summary_key, 0) + satellite_sum
+
                 result["GRAND_TOTAL"] = result.get("GRAND_TOTAL", 0) + self.get_value(group, dep_category, None, None)
 
         return result
