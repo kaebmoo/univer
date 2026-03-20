@@ -12,7 +12,7 @@ reconciliation/
 ├── pl_reconciliation_enhanced.py  # โปรแกรม 4: ตรวจกับงบการเงิน (enhanced, 3 modes)
 ├── pl_reconciliation_combined.py  # โปรแกรม 5: ตรวจ combined output
 ├── manual.md                      # คู่มือละเอียด
-├── manual.pdf                     # คู่มือ PDF (เวอร์ชันเก่า)
+├── manual.pdf                     # คู่มือ PDF
 ├── README.md                      # คู่มือนี้
 │
 ├── data/                          # ข้อมูล input ทั้งหมด
