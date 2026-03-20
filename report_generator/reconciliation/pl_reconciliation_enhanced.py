@@ -23,6 +23,13 @@ from enum import Enum
 # Configuration Classes
 # ==========================================
 
+# Tolerance levels:
+# - TOLERANCE (0.001) is used for revenue and expense checks where source CSV and report
+#   should match exactly (only floating-point rounding differences expected).
+# - Default tolerance 1.0 (in ReconciliationResult) is used for net profit checks which
+#   may have small rounding differences across multiple aggregation steps.
+# - Revenue comparisons in pl_reconciliation_combined.py use 10.0 because revenue_with_other
+#   aggregates across multiple sheets (revenue_gl + summary_other) where rounding accumulates.
 TOLERANCE = 0.001  # ความคลาดเคลื่อนที่ยอมรับได้
 
 class PeriodType(Enum):
@@ -84,21 +91,39 @@ def parse_thai_number(text) -> float:
     except ValueError:
         return 0.0
 
+def detect_label_col(df: pd.DataFrame) -> int:
+    """ค้นหา column ที่มี 'รายละเอียด' ใน DataFrame (คล้าย ExcelSheetReader._detect_label_column)"""
+    search_rows = min(15, len(df))
+    search_cols = min(10, len(df.columns))
+    for row_idx in range(search_rows):
+        for col_idx in range(search_cols):
+            val = df.iloc[row_idx, col_idx]
+            if val is not None and 'รายละเอียด' in str(val):
+                return col_idx
+    return 1  # default fallback
+
 def get_val_from_df(df: pd.DataFrame, keywords: List[str], col_index: int = 2) -> Optional[float]:
     """
     ค้นหาตัวเลขใน DataFrame โดยใช้ keywords
 
     Args:
         df: DataFrame ที่ต้องการค้นหา
-        keywords: รายการคำที่ต้องมีในคำอธิบาย (column 1)
+        keywords: รายการคำที่ต้องมีในคำอธิบาย (dynamically detected label column)
         col_index: index ของ column ที่เก็บตัวเลข (default=2 คือ column ที่ 3)
 
     Returns:
         ตัวเลขที่พบ หรือ None ถ้าไม่พบ
     """
+    # Dynamically detect label column instead of hardcoding column 1
+    label_col = detect_label_col(df)
     for i, row in df.iterrows():
-        desc = str(row[1])
+        if label_col >= len(row):
+            continue
+        desc = str(row[label_col])
         if all(k in desc for k in keywords):
+            if col_index >= len(row):
+                print(f"WARNING: col_index {col_index} out of bounds (row has {len(row)} columns)")
+                return None
             return parse_thai_number(row[col_index])
     return None
 
@@ -602,64 +627,48 @@ Examples:
     validation_mode = ValidationMode(args.mode)
 
     # ใช้ตำแหน่งของไฟล์นี้เป็นฐานในการหา path
-    script_dir = Path(__file__).parent
+    script_dir = Path(__file__).resolve().parent
+    data_dir = script_dir / 'data'                  # CSV + pld_nt_*.txt
+    report_dir = script_dir / 'report'              # Excel report (copy มาจาก output/)
 
-    # ถ้าระบุ --date ให้สร้างชื่อไฟล์อัตโนมัติ
-    if args.date:
-        # Validate date format
-        try:
-            date_obj = datetime.strptime(args.date, '%Y%m%d')
-            year = date_obj.strftime('%Y')
-            month = date_obj.strftime('%Y%m')
-            company = args.company
+    # ต้องระบุ --date เสมอ
+    if not args.date:
+        print("❌ กรุณาระบุวันที่ด้วย --date YYYYMMDD")
+        print("   ตัวอย่าง: python pl_reconciliation_enhanced.py --date 20251231")
+        print("")
+        print("   ก่อนรัน ให้ copy ไฟล์ Excel report จาก report_generator/output/ มาไว้ใน report/")
+        return
 
-            # กำหนด Configuration สำหรับรายเดือน (MTH)
-            config_mth = FileConfig(
-                period_type=PeriodType.MTH,
-                report_excel=str(script_dir / f'Report_{company}_{month}.xlsx'),
-                source_cost_csv=str(script_dir / f'TRN_PL_COSTTYPE_{company}_MTH_TABLE_{args.date}.csv'),
-                source_gl_csv=str(script_dir / f'TRN_PL_GLGROUP_{company}_MTH_TABLE_{args.date}.csv'),
-                financial_stmt_txt=str(script_dir / f'pld_{company.lower()}_{args.date}.txt')
-            )
+    # Validate date format
+    try:
+        date_obj = datetime.strptime(args.date, '%Y%m%d')
+        month = date_obj.strftime('%Y%m')
+        company = args.company
+    except ValueError:
+        print(f"❌ รูปแบบวันที่ไม่ถูกต้อง: {args.date}")
+        print("   กรุณาใช้รูปแบบ YYYYMMDD (เช่น 20251031)")
+        return
 
-            # กำหนด Configuration สำหรับสะสม (YTD)
-            config_ytd = FileConfig(
-                period_type=PeriodType.YTD,
-                report_excel=str(script_dir / f'Report_{company}_YTD_{month}.xlsx'),
-                source_cost_csv=str(script_dir / f'TRN_PL_COSTTYPE_{company}_YTD_TABLE_{args.date}.csv'),
-                source_gl_csv=str(script_dir / f'TRN_PL_GLGROUP_{company}_YTD_TABLE_{args.date}.csv'),
-                financial_stmt_txt=str(script_dir / f'pld_{company.lower()}_{args.date}.txt')
-            )
+    # กำหนด Configuration สำหรับรายเดือน (MTH)
+    config_mth = FileConfig(
+        period_type=PeriodType.MTH,
+        report_excel=str(report_dir / f'Report_{company}_{month}.xlsx'),
+        source_cost_csv=str(data_dir / f'TRN_PL_COSTTYPE_{company}_MTH_TABLE_{args.date}.csv'),
+        source_gl_csv=str(data_dir / f'TRN_PL_GLGROUP_{company}_MTH_TABLE_{args.date}.csv'),
+        financial_stmt_txt=str(data_dir / f'pld_{company.lower()}_{args.date}.txt')
+    )
 
-            print(f"\n📅 วันที่รายงาน: {date_obj.strftime('%d/%m/%Y')}")
-            print(f"🏢 บริษัท: {company}")
+    # กำหนด Configuration สำหรับสะสม (YTD)
+    config_ytd = FileConfig(
+        period_type=PeriodType.YTD,
+        report_excel=str(report_dir / f'Report_{company}_YTD_{month}.xlsx'),
+        source_cost_csv=str(data_dir / f'TRN_PL_COSTTYPE_{company}_YTD_TABLE_{args.date}.csv'),
+        source_gl_csv=str(data_dir / f'TRN_PL_GLGROUP_{company}_YTD_TABLE_{args.date}.csv'),
+        financial_stmt_txt=str(data_dir / f'pld_{company.lower()}_{args.date}.txt')
+    )
 
-        except ValueError:
-            print(f"❌ รูปแบบวันที่ไม่ถูกต้อง: {args.date}")
-            print("   กรุณาใช้รูปแบบ YYYYMMDD (เช่น 20251031)")
-            return
-    else:
-        # ใช้ค่า default (วิธีเดิม - ต้องแก้โค้ดทุกครั้ง)
-        print("\n⚠️  กำลังใช้ค่า default ที่กำหนดในโค้ด")
-        print("   แนะนำ: ใช้ --date เพื่อไม่ต้องแก้โค้ดทุกครั้ง")
-
-        # กำหนด Configuration สำหรับรายเดือน (MTH)
-        config_mth = FileConfig(
-            period_type=PeriodType.MTH,
-            report_excel=str(script_dir / 'Report_NT_202510.xlsx'),
-            source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_MTH_TABLE_20251031.csv'),
-            source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
-            financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
-        )
-
-        # กำหนด Configuration สำหรับสะสม (YTD)
-        config_ytd = FileConfig(
-            period_type=PeriodType.YTD,
-            report_excel=str(script_dir / 'Report_NT_YTD_202510.xlsx'),
-            source_cost_csv=str(script_dir / 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251031.csv'),
-            source_gl_csv=str(script_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
-            financial_stmt_txt=str(script_dir / 'pld_nt_20251031.txt')
-        )
+    print(f"\n📅 วันที่รายงาน: {date_obj.strftime('%d/%m/%Y')}")
+    print(f"🏢 บริษัท: {company}")
 
     # รันการตรวจสอบทั้งสองงวด
     print("\n" + "="*100)

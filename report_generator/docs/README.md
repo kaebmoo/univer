@@ -32,10 +32,14 @@
 
 ## reconciliation/ - เอกสาร Reconciliation
 
+คู่มือหลัก: [reconciliation/README.md](../../reconciliation/README.md) (อยู่ใน folder reconciliation/ โดยตรง)
+
+เอกสารแนวคิดและ methodology:
+
 | ไฟล์ | รายละเอียด |
 | ---- | ---------- |
-| [Reconciliation.md](reconciliation/Reconciliation.md) | กระบวนการ reconciliation |
-| [README_Enhanced.md](reconciliation/README_Enhanced.md) | Enhanced reconciliation report |
+| [Reconciliation.md](reconciliation/Reconciliation.md) | กรอบแนวคิดและหลักการตรวจกระทบยอด |
+| [README_Enhanced.md](reconciliation/README_Enhanced.md) | คู่มือ Enhanced reconciliation |
 | [reconciliation_plan.md](reconciliation/reconciliation_plan.md) | แผนการทำ reconciliation |
 | [manual.md](reconciliation/manual.md) | คู่มือ reconciliation แบบ manual |
 | [km.md](reconciliation/km.md) | Knowledge management |

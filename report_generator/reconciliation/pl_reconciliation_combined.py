@@ -89,28 +89,75 @@ def calculate_net_profit_from_combined(data: Dict[str, pd.DataFrame], period: st
 
     # 1. รายได้จาก revenue_gl_group (ไม่รวม R10 ที่เป็นผลตอบแทนฯและรายได้อื่น)
     revenue_df = data['revenue_gl']
-    revenue_df_filtered = revenue_df[
-        (revenue_df['REPORT_CODE'] != 'R10') &
-        (revenue_df['REPORT_CODE'].notna())
-    ].copy()
-    total_revenue = revenue_df_filtered[f'REVENUE_{col_suffix}'].sum()
+    revenue_col = f'REVENUE_{col_suffix}'
+    if 'REPORT_CODE' not in revenue_df.columns:
+        print(f"WARNING: column 'REPORT_CODE' not found in revenue_gl. Available columns: {list(revenue_df.columns)}")
+        total_revenue = 0
+    elif revenue_col not in revenue_df.columns:
+        print(f"WARNING: column '{revenue_col}' not found in revenue_gl. Available columns: {list(revenue_df.columns)}")
+        total_revenue = 0
+    else:
+        revenue_df_filtered = revenue_df[
+            (revenue_df['REPORT_CODE'] != 'R10') &
+            (revenue_df['REPORT_CODE'].notna())
+        ].copy()
+        total_revenue = revenue_df_filtered[revenue_col].sum()
 
     # 2. ค่าใช้จ่ายจาก expense_gl_group (ไม่รวมค่าใช้จ่ายอื่น C17 ที่อยู่ใน summary_other)
     expense_df = data['expense_gl']
+    expense_col = f'EXPENSE_{col_suffix}'
     # กรองเฉพาะรายการที่มี CODE_GROUP (ไม่รวม Grand Total)
     # และตัด C17 (ค่าใช้จ่ายอื่น) ออก เพราะจะเอามาจาก summary_other แทน
-    expense_df_filtered = expense_df[
-        (expense_df['CODE_GROUP'].notna()) &
-        (expense_df['CODE_GROUP'] != 'C17')
-    ].copy()
-
-    total_expense = expense_df_filtered[f'EXPENSE_{col_suffix}'].sum()
+    if 'CODE_GROUP' not in expense_df.columns:
+        print(f"WARNING: column 'CODE_GROUP' not found in expense_gl. Available columns: {list(expense_df.columns)}")
+        total_expense = 0
+    elif expense_col not in expense_df.columns:
+        print(f"WARNING: column '{expense_col}' not found in expense_gl. Available columns: {list(expense_df.columns)}")
+        total_expense = 0
+    else:
+        expense_df_filtered = expense_df[
+            (expense_df['CODE_GROUP'].notna()) &
+            (expense_df['CODE_GROUP'] != 'C17')
+        ].copy()
+        total_expense = expense_df_filtered[expense_col].sum()
 
     # 3. Summary other - ดึงค่าจาก summary_other
     summary_df = data['summary_other']
-    financial_income = summary_df[summary_df['รายการ'] == 'ผลตอบแทนทางการเงิน'][period].values[0] if len(summary_df[summary_df['รายการ'] == 'ผลตอบแทนทางการเงิน']) > 0 else 0
-    other_revenue = summary_df[summary_df['รายการ'] == 'รายได้อื่น'][period].values[0] if len(summary_df[summary_df['รายการ'] == 'รายได้อื่น']) > 0 else 0
-    other_expense = summary_df[summary_df['รายการ'] == 'ค่าใช้จ่ายอื่น'][period].values[0] if len(summary_df[summary_df['รายการ'] == 'ค่าใช้จ่ายอื่น']) > 0 else 0
+
+    # Bounds checking: verify 'รายการ' column exists before filtering
+    if 'รายการ' not in summary_df.columns:
+        print(f"WARNING: column 'รายการ' not found in summary_other. Available columns: {list(summary_df.columns)}")
+        financial_income = 0
+        other_revenue = 0
+        other_expense = 0
+    else:
+        # Bounds checking: verify period column exists
+        if period not in summary_df.columns:
+            print(f"WARNING: period column '{period}' not found in summary_other. Available columns: {list(summary_df.columns)}")
+            financial_income = 0
+            other_revenue = 0
+            other_expense = 0
+        else:
+            filtered_fi = summary_df[summary_df['รายการ'] == 'ผลตอบแทนทางการเงิน']
+            if len(filtered_fi) > 0:
+                financial_income = filtered_fi[period].values[0]
+            else:
+                print("WARNING: 'ผลตอบแทนทางการเงิน' not found in summary_other - defaulting to 0")
+                financial_income = 0
+
+            filtered_or = summary_df[summary_df['รายการ'] == 'รายได้อื่น']
+            if len(filtered_or) > 0:
+                other_revenue = filtered_or[period].values[0]
+            else:
+                print("WARNING: 'รายได้อื่น' not found in summary_other - defaulting to 0")
+                other_revenue = 0
+
+            filtered_oe = summary_df[summary_df['รายการ'] == 'ค่าใช้จ่ายอื่น']
+            if len(filtered_oe) > 0:
+                other_expense = filtered_oe[period].values[0]
+            else:
+                print("WARNING: 'ค่าใช้จ่ายอื่น' not found in summary_other - defaulting to 0")
+                other_expense = 0
 
     # 4. คำนวณกำไรสุทธิ
     # สูตร: รายได้บริการ - ค่าใช้จ่าย + ผลตอบแทนฯ + รายได้อื่น - ค่าใช้จ่ายอื่น
@@ -186,12 +233,15 @@ def run_reconciliation(config: CombinedFileConfig):
     print(f"  - กำไรสุทธิจาก CSV:        {source_mth_net_profit:>20,.2f}")
     print(f"  - กำไรสุทธิจาก Combined:   {mth_values['net_profit']:>20,.2f}")
     diff_net_mth = source_mth_net_profit - mth_values['net_profit']
+    # Tolerance 1.0 for net profit: small rounding differences across aggregation steps
     status_mth = "✅ PASS" if abs(diff_net_mth) < 1.0 else "❌ FAIL"
     print(f"  - ส่วนต่าง:                {diff_net_mth:>20,.2f}  {status_mth}")
 
     print(f"\n  - รายได้รวมจาก CSV:       {source_mth_revenue:>20,.2f}")
     print(f"  - รายได้รวมจาก Combined:  {mth_values['revenue_with_other']:>20,.2f}")
     diff_rev_mth = source_mth_revenue - mth_values['revenue_with_other']
+    # Tolerance 10.0 for revenue: aggregates across multiple sheets (revenue_gl + summary_other)
+    # where rounding accumulates more than single-value net profit comparisons
     status_rev_mth = "✅ PASS" if abs(diff_rev_mth) < 10.0 else "❌ FAIL"
     print(f"  - ส่วนต่าง:                {diff_rev_mth:>20,.2f}  {status_rev_mth}")
 
@@ -220,12 +270,14 @@ def run_reconciliation(config: CombinedFileConfig):
     print(f"  - กำไรสุทธิจาก CSV:        {source_ytd_net_profit:>20,.2f}")
     print(f"  - กำไรสุทธิจาก Combined:   {ytd_values['net_profit']:>20,.2f}")
     diff_net_ytd = source_ytd_net_profit - ytd_values['net_profit']
+    # Tolerance 1.0 for net profit: small rounding differences across aggregation steps
     status_ytd = "✅ PASS" if abs(diff_net_ytd) < 1.0 else "❌ FAIL"
     print(f"  - ส่วนต่าง:                {diff_net_ytd:>20,.2f}  {status_ytd}")
 
     print(f"\n  - รายได้รวมจาก CSV:       {source_ytd_revenue:>20,.2f}")
     print(f"  - รายได้รวมจาก Combined:  {ytd_values['revenue_with_other']:>20,.2f}")
     diff_rev_ytd = source_ytd_revenue - ytd_values['revenue_with_other']
+    # Tolerance 10.0 for revenue: aggregates across multiple sheets where rounding accumulates
     status_rev_ytd = "✅ PASS" if abs(diff_rev_ytd) < 10.0 else "❌ FAIL"
     print(f"  - ส่วนต่าง:                {diff_rev_ytd:>20,.2f}  {status_rev_ytd}")
 
@@ -260,11 +312,15 @@ def run_reconciliation(config: CombinedFileConfig):
 def main():
     """ฟังก์ชันหลัก"""
 
+    from pathlib import Path
+    script_dir = Path(__file__).resolve().parent
+    data_dir = script_dir / 'data'
+
     config = CombinedFileConfig(
-        combined_file='report_generator/reconciliation/pl_combined_output_202510.xlsx',
-        source_gl_csv_mth='report_generator/reconciliation/TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv',
-        source_gl_csv_ytd='report_generator/reconciliation/TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv',
-        financial_stmt_txt='report_generator/reconciliation/pld_nt_20251031.txt'
+        combined_file=str(data_dir / 'pl_combined_output_202510.xlsx'),
+        source_gl_csv_mth=str(data_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
+        source_gl_csv_ytd=str(data_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
+        financial_stmt_txt=str(data_dir / 'pld_nt_20251031.txt')
     )
 
     run_reconciliation(config)

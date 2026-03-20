@@ -16,57 +16,111 @@ import pandas as pd
 import openpyxl
 import json
 import re
+import argparse
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 # ==========================================
-# PATH CONFIGURATION - แก้ไขตรงนี้จุดเดียว
+# PATH CONFIGURATION
 # ==========================================
-# SCRIPT_DIR = ตำแหน่งของไฟล์ script นี้ (ใช้อ้างอิง relative path ได้)
 SCRIPT_DIR = Path(__file__).resolve().parent
-
-# โฟลเดอร์ข้อมูล CSV source (ให้วางไฟล์ CSV ไว้ในโฟลเดอร์นี้)
-# ค่า default = โฟลเดอร์ data/ ใต้ตำแหน่ง script นี้
-# ตัวอย่างชี้ไปที่อื่น: DATA_DIR = SCRIPT_DIR.parent / 'shared_data'
-# ตัวอย่าง absolute  : DATA_DIR = Path(r'C:\Users\username\project\data')  # Windows
-#                       DATA_DIR = Path('/Users/username/project/data')      # macOS
 DATA_DIR = SCRIPT_DIR / 'data'
-
-# โฟลเดอร์ Excel report ต้นฉบับ (ให้วางไฟล์ Excel ไว้ในโฟลเดอร์นี้)
-# ค่า default = โฟลเดอร์ report/ ใต้ตำแหน่ง script นี้
-# ตัวอย่างชี้ไปที่อื่น: REPORT_DIR = SCRIPT_DIR.parent / 'reports'
-# ตัวอย่าง absolute  : REPORT_DIR = Path(r'C:\Users\username\Documents\NT\Report\PL')  # Windows
-#                       REPORT_DIR = Path('/Users/username/Documents/NT/Report/PL')      # macOS
 REPORT_DIR = SCRIPT_DIR / 'report'
-
-# ชื่อไฟล์ CSV (อยู่ใน DATA_DIR)
-# ตัวอย่าง: เปลี่ยนวันที่ 20251231 เป็นงวดที่ต้องการ เช่น 20260131
-CSV_FILENAMES = {
-    'COSTTYPE_MTH': 'TRN_PL_COSTTYPE_NT_MTH_TABLE_20251231.csv',
-    'COSTTYPE_YTD': 'TRN_PL_COSTTYPE_NT_YTD_TABLE_20251231.csv',
-    'GLGROUP_MTH':  'TRN_PL_GLGROUP_NT_MTH_TABLE_20251231.csv',
-    'GLGROUP_YTD':  'TRN_PL_GLGROUP_NT_YTD_TABLE_20251231.csv',
-}
-
-# ชื่อไฟล์ Excel report (อยู่ใน REPORT_DIR)
-# ตัวอย่าง: เปลี่ยนชื่อไฟล์ตามงวดที่ต้องการ เช่น Report_NT_ม.ค.69_...
-EXCEL_FILENAMES = {
-    'MTH': 'Report_NT_ธ.ค.68_(ก่อนผู้สอบบัญชีรับรอง)_T.xlsx',
-    'YTD': 'Report_NT BU_สะสมธ.ค.2568_(ก่อนผู้สอบบัญชีรับรอง) _T.xlsx',
-}
-
-# โฟลเดอร์และชื่อไฟล์ผลลัพธ์ (สร้างอัตโนมัติถ้ายังไม่มี)
-# ค่า default = โฟลเดอร์ output/ ใต้ตำแหน่ง script นี้
-# ตัวอย่างชี้ไปที่อื่น: OUTPUT_DIR = SCRIPT_DIR.parent / 'results'
-# ตัวอย่างชื่อไฟล์     : เปลี่ยน 202512 เป็นงวดที่ต้องการ เช่น 202601
 OUTPUT_DIR = SCRIPT_DIR / 'output'
-OUTPUT_FILENAME = 'reconciliation_report_202512.xlsx'
-
-# ==========================================
 
 TOLERANCE = 0.001  # ยอมรับผลต่างไม่เกิน 0.001 บาท (floating point)
+
+
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description='NT P&L Reconciliation - BU level + Cross-sheet + Alliance')
+    parser.add_argument('--date', type=str, required=True,
+                        help='วันที่ข้อมูล YYYYMMDD (เช่น 20260131)')
+    parser.add_argument('--company', type=str, default='NT',
+                        help='รหัสบริษัท (default: NT)')
+    parser.add_argument('--excel-mth', type=str, default=None,
+                        help='ชื่อไฟล์ Excel report MTH (ถ้าไม่ระบุจะใช้ Report_{company}_{YYYYMM}.xlsx)')
+    parser.add_argument('--excel-ytd', type=str, default=None,
+                        help='ชื่อไฟล์ Excel report YTD (ถ้าไม่ระบุจะใช้ Report_{company}_YTD_{YYYYMM}.xlsx)')
+    return parser.parse_args()
+
+
+def build_file_config(args):
+    """Build file paths from --date argument"""
+    try:
+        date_obj = datetime.strptime(args.date, '%Y%m%d')
+    except ValueError:
+        print("❌ รูปแบบวันที่ไม่ถูกต้อง: {} (ใช้ YYYYMMDD)".format(args.date))
+        return None
+
+    month = date_obj.strftime('%Y%m')
+    company = args.company
+
+    # CSV filenames (auto-generate from date)
+    csv_filenames = {
+        'COSTTYPE_MTH': 'TRN_PL_COSTTYPE_{}_MTH_TABLE_{}.csv'.format(company, args.date),
+        'COSTTYPE_YTD': 'TRN_PL_COSTTYPE_{}_YTD_TABLE_{}.csv'.format(company, args.date),
+        'GLGROUP_MTH':  'TRN_PL_GLGROUP_{}_MTH_TABLE_{}.csv'.format(company, args.date),
+        'GLGROUP_YTD':  'TRN_PL_GLGROUP_{}_YTD_TABLE_{}.csv'.format(company, args.date),
+    }
+
+    # Excel filenames (auto or user-specified)
+    excel_mth = args.excel_mth or 'Report_{}_{}.xlsx'.format(company, month)
+    excel_ytd = args.excel_ytd or 'Report_{}_YTD_{}.xlsx'.format(company, month)
+    excel_filenames = {'MTH': excel_mth, 'YTD': excel_ytd}
+
+    output_filename = 'reconciliation_report_{}.xlsx'.format(month)
+
+    return {
+        'date_obj': date_obj,
+        'month': month,
+        'company': company,
+        'csv_filenames': csv_filenames,
+        'excel_filenames': excel_filenames,
+        'output_filename': output_filename,
+    }
+
+
+def validate_period(csv_data, excel_files, expected_month):
+    """Validate that CSV and Excel are for the same period"""
+    warnings = []
+
+    # Check CSV TIME_KEY
+    for key, df in csv_data.items():
+        if 'TIME_KEY' in df.columns:
+            time_keys = df['TIME_KEY'].astype(str).unique()
+            for tk in time_keys:
+                if not tk.startswith(expected_month):
+                    warnings.append("CSV {}: TIME_KEY={} ไม่ตรงกับงวด {}".format(
+                        key, tk, expected_month))
+                    break
+
+    # Check Excel header for period text
+    for period, path in excel_files.items():
+        try:
+            wb = openpyxl.load_workbook(str(path), data_only=True, read_only=True)
+            ws = wb[wb.sheetnames[0]]
+            found = False
+            for row_idx in range(1, 10):
+                for col_idx in range(1, 6):
+                    val = ws.cell(row=row_idx, column=col_idx).value
+                    if val and 'ประจำเดือน' in str(val):
+                        header_text = str(val)
+                        if expected_month not in header_text:
+                            warnings.append("Excel {} header: '{}' - ตรวจสอบว่าตรงกับงวด {} หรือไม่".format(
+                                period, header_text.strip(), expected_month))
+                        found = True
+                        break
+                if found:
+                    break
+            wb.close()
+        except Exception:
+            pass
+
+    return warnings
 
 # ==========================================
 # Data Classes
@@ -151,18 +205,31 @@ class ExcelSheetReader:
         self.max_row = ws.max_row
         self.max_col = ws.max_column
 
+        # Detect layout: find "รายละเอียด" cell to determine label column
+        self.label_col = 2  # default
+        self._detect_label_column()
+
         # Detect structure
         self.data_start_row = self._find_data_start_row()
         self.header_info = self._parse_headers()
         self.row_data = self._parse_rows()
 
+    def _detect_label_column(self):
+        """Find the column containing 'รายละเอียด' header"""
+        for row_idx in range(1, 16):
+            for col_idx in range(1, 11):
+                val = self.ws.cell(row=row_idx, column=col_idx).value
+                if val and 'รายละเอียด' in str(val):
+                    self.label_col = col_idx
+                    return
+
     def _find_data_start_row(self) -> int:
-        """Find the first data row (looking for '1' in first meaningful content)"""
+        """Find the first data row (looking for '1' + 'รายได้' in label column)"""
         for row_idx in range(1, min(15, self.max_row + 1)):
-            b_val = self.ws.cell(row=row_idx, column=2).value
-            if b_val is not None:
-                b_str = str(b_val).strip()
-                if b_str.startswith('1') and ('รายได้' in b_str or 'รวมรายได้' in b_str):
+            val = self.ws.cell(row=row_idx, column=self.label_col).value
+            if val is not None:
+                val_str = str(val).strip()
+                if val_str.startswith('1') and ('รายได้' in val_str or 'รวมรายได้' in val_str):
                     return row_idx
         return 10  # default
 
@@ -195,8 +262,8 @@ class ExcelSheetReader:
                 if 'ไม่รวมพันธมิตร' in val_str and info['non_alliance_col'] is None:
                     info['non_alliance_col'] = col_idx
 
-                # BU columns - look for กลุ่มธุรกิจ patterns
-                if 'กลุ่มธุรกิจ' in val_str or 'บริการอื่น' in val_str or 'รายได้อื่น' in val_str or 'นโยบายภาครัฐ' in val_str:
+                # BU columns - try to normalize any header that could be a BU
+                if 'กลุ่มธุรกิจ' in val_str or 'กลุ่มบริการอื่น' in val_str or 'รายได้อื่น' in val_str or 'นโยบายภาครัฐ' in val_str or 'ค่าใช้จ่ายอื่น' in val_str:
                     bu_name = self._normalize_bu_name(val_str)
                     if bu_name and bu_name not in info['bu_columns']:
                         info['bu_columns'][bu_name] = col_idx
@@ -205,39 +272,44 @@ class ExcelSheetReader:
                 if 'กลุ่มบริการ' in val_str and 'รวม' not in val_str:
                     info['sg_columns'][val_str] = col_idx
 
-        # If total_col is 'รวมทั้งสิ้น', actual data is in col C (index 3)
+        # Default: data column is right after label column
         if info['total_col'] is None:
-            info['total_col'] = 3  # Default to column C
+            info['total_col'] = self.label_col + 1
 
         return info
 
     def _normalize_bu_name(self, text: str) -> Optional[str]:
-        """Normalize BU name from Excel header to match CSV BU values"""
+        """Normalize BU name from Excel header to match CSV BU values
+
+        Excel headers may use different casing or slightly different names.
+        This mapping handles case-insensitive matching.
+        """
         text = text.strip()
-        # Map Excel BU names to CSV BU identifiers
+        # Map Excel BU keywords (case-insensitive) → CSV BU identifiers
         mappings = {
-            'Hard Infrastructure': '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE',
             'HARD INFRASTRUCTURE': '1.กลุ่มธุรกิจ HARD INFRASTRUCTURE',
-            'International': '2.กลุ่มธุรกิจ INTERNATIONAL',
             'INTERNATIONAL': '2.กลุ่มธุรกิจ INTERNATIONAL',
-            'Mobile': '3.กลุ่มธุรกิจ MOBILE',
             'MOBILE': '3.กลุ่มธุรกิจ MOBILE',
-            'Fixed Line': '4.กลุ่มธุรกิจ FIXED LINE & BROADBAND',
             'FIXED LINE': '4.กลุ่มธุรกิจ FIXED LINE & BROADBAND',
-            'Digital': '5.กลุ่มธุรกิจ DIGITAL',
             'DIGITAL': '5.กลุ่มธุรกิจ DIGITAL',
+            'ICT SOLUTION': '6.กลุ่มธุรกิจ ICT SOLUTION',
             'ICT': '6.กลุ่มธุรกิจ ICT SOLUTION',
+            'ไม่ใช่โทรคมนาคม': '7.กลุ่มบริการอื่นไม่ใช่โทรคมนาคม',
+            'รายได้อื่น/ค่าใช้จ่ายอื่น': '8.รายได้อื่น/ค่าใช้จ่ายอื่น',
+            'รายได้อื่น': '8.รายได้อื่น/ค่าใช้จ่ายอื่น',
         }
+        text_lower = text.lower()
         for key, csv_bu in mappings.items():
-            if key.lower() in text.lower():
+            if key.lower() in text_lower:
                 return csv_bu
         return None
 
     def _parse_rows(self) -> Dict[str, Dict]:
         """Parse all data rows with their labels and values"""
         rows = {}
+        data_col_start = self.label_col + 1  # data starts after label column
         for row_idx in range(self.data_start_row, self.max_row + 1):
-            label = self.ws.cell(row=row_idx, column=2).value
+            label = self.ws.cell(row=row_idx, column=self.label_col).value
             if label is None:
                 continue
             label = str(label).strip()
@@ -245,7 +317,7 @@ class ExcelSheetReader:
                 continue
 
             row_values = {}
-            for col_idx in range(3, min(self.max_col + 1, 250)):
+            for col_idx in range(data_col_start, min(self.max_col + 1, 250)):
                 val = self.ws.cell(row=row_idx, column=col_idx).value
                 if val is not None:
                     try:
@@ -377,16 +449,13 @@ class PLReconciler:
         period_label: str,
         sheet_name: str,
     ):
-        """Compare CSV per-BU totals vs Excel per-BU columns"""
+        """Compare CSV per-BU totals vs Excel per-BU columns (all GROUP rows)"""
         category = f"CSV vs Excel by BU ({period_label}) - {sheet_name}"
 
         row_map = COSTTYPE_ROW_MAP if csv_type == 'COSTTYPE' else GLGROUP_ROW_MAP
         csv_by_bu = aggregate_csv_by_bu(csv_df)
 
-        # Only check key rows (revenue and net profit) to keep output manageable
-        key_rows = [row_map[0], row_map[-1]]  # first (revenue) and last (net profit)
-
-        for csv_group, excel_keywords, desc in key_rows:
+        for csv_group, excel_keywords, desc in row_map:
             for bu_name in excel_reader.header_info['bu_columns'].keys():
                 csv_val = csv_by_bu.get((csv_group, bu_name))
                 if csv_val is None:
@@ -411,7 +480,10 @@ class PLReconciler:
         period_label: str,
         level: str,  # กลุ่มธุรกิจ / กลุ่มบริการ / บริการ
     ):
-        """Compare ต้นทุน vs หมวดบัญชี sheets for consistency"""
+        """Compare ต้นทุน vs หมวดบัญชี sheets for consistency
+
+        Checks both รวมทั้งสิ้น (total) and per-BU columns.
+        """
         category = f"Cross-sheet ({period_label}) - {level}"
 
         # Key rows that must match between cost and GL sheets
@@ -421,7 +493,7 @@ class PLReconciler:
             (['EBITDA'], 'EBITDA'),
         ]
 
-        # Also check กำไรสุทธิ - different keyword patterns
+        # กำไรสุทธิ - different keyword patterns between sheets
         cost_net = cost_reader.get_total_value(['14.', 'กำไร', 'สุทธิ'])
         if cost_net is None:
             cost_net = cost_reader.get_total_value(['กำไร', 'สุทธิ'])
@@ -433,13 +505,14 @@ class PLReconciler:
         if cost_net is not None and gl_net is not None:
             self.results.append(CheckResult(
                 category=category,
-                check_name=f"กำไร(ขาดทุน) สุทธิ",
+                check_name="กำไร(ขาดทุน) สุทธิ (รวมทั้งสิ้น)",
                 source_label=f"ต้นทุน_{level}",
                 source_value=cost_net,
                 target_label=f"หมวดบัญชี_{level}",
                 target_value=gl_net,
             ))
 
+        # Total-level cross checks
         for keywords, desc in cross_checks:
             cost_val = cost_reader.get_total_value(keywords)
             gl_val = gl_reader.get_total_value(keywords)
@@ -447,12 +520,105 @@ class PLReconciler:
             if cost_val is not None and gl_val is not None:
                 self.results.append(CheckResult(
                     category=category,
-                    check_name=desc,
+                    check_name=f"{desc} (รวมทั้งสิ้น)",
                     source_label=f"ต้นทุน_{level}",
                     source_value=cost_val,
                     target_label=f"หมวดบัญชี_{level}",
                     target_value=gl_val,
                 ))
+
+        # Per-BU cross checks
+        # Use BU columns from both sheets — check BUs that exist in both
+        cost_bus = cost_reader.header_info['bu_columns']
+        gl_bus = gl_reader.header_info['bu_columns']
+        common_bus = set(cost_bus.keys()) & set(gl_bus.keys())
+
+        # Net profit per BU (different keywords per sheet)
+        net_profit_checks = [
+            (cost_reader, ['14.', 'กำไร', 'สุทธิ'], gl_reader, ['5.', 'กำไร', 'สุทธิ'], 'กำไรสุทธิ'),
+        ]
+        for cost_r, cost_kw, gl_r, gl_kw, desc in net_profit_checks:
+            for bu_name in sorted(common_bus):
+                cost_val = cost_r.get_bu_value(cost_kw, bu_name)
+                gl_val = gl_r.get_bu_value(gl_kw, bu_name)
+                if cost_val is not None and gl_val is not None:
+                    bu_short = bu_name.split('.')[-1].strip() if '.' in bu_name else bu_name
+                    self.results.append(CheckResult(
+                        category=category,
+                        check_name=f"{desc} - {bu_short}",
+                        source_label=f"ต้นทุน_{level}",
+                        source_value=cost_val,
+                        target_label=f"หมวดบัญชี_{level}",
+                        target_value=gl_val,
+                    ))
+
+        # Same-keyword rows per BU
+        for keywords, desc in cross_checks:
+            for bu_name in sorted(common_bus):
+                cost_val = cost_reader.get_bu_value(keywords, bu_name)
+                gl_val = gl_reader.get_bu_value(keywords, bu_name)
+                if cost_val is not None and gl_val is not None:
+                    bu_short = bu_name.split('.')[-1].strip() if '.' in bu_name else bu_name
+                    self.results.append(CheckResult(
+                        category=category,
+                        check_name=f"{desc} - {bu_short}",
+                        source_label=f"ต้นทุน_{level}",
+                        source_value=cost_val,
+                        target_label=f"หมวดบัญชี_{level}",
+                        target_value=gl_val,
+                    ))
+
+    def check_column_total(
+        self,
+        reader: ExcelSheetReader,
+        period_label: str,
+        sheet_name: str,
+    ):
+        """Check: sum of BU columns = รวมทั้งสิ้น for key rows
+
+        ตรวจว่าผลรวม column ย่อย (BU) = column รวมทั้งสิ้น
+        ข้าม Common Size columns (เป็นสัดส่วน ไม่ใช่จำนวนเงิน)
+        """
+        category = f"Column-Total ({period_label}) - {sheet_name}"
+
+        total_col = reader.header_info['total_col']
+        bu_cols = reader.header_info['bu_columns']
+
+        if total_col is None or len(bu_cols) == 0:
+            return
+
+        # Key rows to check
+        check_keywords = [
+            (['รวมรายได้'], 'รวมรายได้'),
+            (['EBITDA'], 'EBITDA'),
+            (['กำไร', 'ภาษี', 'EBT'], 'กำไรก่อนภาษี (EBT)'),
+            (['กำไร', 'สุทธิ'], 'กำไรสุทธิ'),
+        ]
+
+        for keywords, desc in check_keywords:
+            total_val = reader.get_total_value(keywords)
+            if total_val is None:
+                continue
+
+            bu_sum = 0.0
+            found_any = False
+            for bu_name, bu_col in bu_cols.items():
+                bu_val = reader.get_bu_value(keywords, bu_name)
+                if bu_val is not None:
+                    bu_sum += bu_val
+                    found_any = True
+
+            if not found_any:
+                continue
+
+            self.results.append(CheckResult(
+                category=category,
+                check_name=f"{desc}: sum({len(bu_cols)} BU) vs รวมทั้งสิ้น",
+                source_label=f"sum(BU cols)",
+                source_value=bu_sum,
+                target_label="รวมทั้งสิ้น",
+                target_value=total_val,
+            ))
 
     def check_alliance_consistency(
         self,
@@ -535,11 +701,31 @@ class PLReconciler:
 # ==========================================
 
 def main():
-    # สร้าง full path จาก config ด้านบน
-    csv_files = {key: DATA_DIR / fname for key, fname in CSV_FILENAMES.items()}
-    excel_files = {key: REPORT_DIR / fname for key, fname in EXCEL_FILENAMES.items()}
+    args = parse_args()
+    config = build_file_config(args)
+    if config is None:
+        return
+
+    date_obj = config['date_obj']
+    month = config['month']
+
+    print("\n📅 วันที่ข้อมูล: {}".format(date_obj.strftime('%d/%m/%Y')))
+    print("🏢 บริษัท: {}".format(config['company']))
+
+    csv_files = {key: DATA_DIR / fname for key, fname in config['csv_filenames'].items()}
+    excel_files = {key: REPORT_DIR / fname for key, fname in config['excel_filenames'].items()}
+
+    # ตรวจว่าไฟล์มีอยู่จริง
+    for key, path in {**csv_files, **excel_files}.items():
+        if not path.exists():
+            print("❌ ไม่พบไฟล์: {}".format(path))
+            if 'Report' in str(path):
+                print("   กรุณา copy จาก report_generator/output/ มาไว้ใน report/")
+                print("   หรือระบุชื่อไฟล์ด้วย --excel-mth / --excel-ytd")
+            return
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / OUTPUT_FILENAME
+    output_path = OUTPUT_DIR / config['output_filename']
 
     # Sheet names
     SHEETS = {
@@ -552,13 +738,22 @@ def main():
     }
 
     # Load CSV files
-    print("Loading CSV files...")
+    print("\nLoading CSV files...")
     csv_data = {}
     for key, path in csv_files.items():
         print(f"  Reading {key}: {path.name}")
         csv_data[key] = read_csv_auto_encoding(str(path))
         csv_data[key]['VALUE'] = csv_data[key]['VALUE'].astype(float)
         print(f"    -> {len(csv_data[key])} rows loaded")
+
+    # Validate period
+    period_warnings = validate_period(csv_data, excel_files, month)
+    if period_warnings:
+        print("\n⚠️  คำเตือนเรื่องงวดข้อมูล:")
+        for w in period_warnings:
+            print(f"   - {w}")
+        print("   กรุณาตรวจสอบว่าไฟล์ CSV และ Excel เป็นงวดเดียวกัน")
+        print()
 
     # Load Excel files
     print("\nLoading Excel files...")
@@ -618,7 +813,12 @@ def main():
             gl_r = excel_readers[f'{period}_{gl_key}']
             reconciler.reconcile_cross_sheet(cost_r, gl_r, period, level_name)
 
-        # 4. Alliance check on sheets that have it
+        # 4. Column-Total: sum(BU columns) = รวมทั้งสิ้น
+        for sheet_key in ['cost_biz', 'gl_biz']:
+            reader = excel_readers[f'{period}_{sheet_key}']
+            reconciler.check_column_total(reader, period, SHEETS[sheet_key])
+
+        # 5. Alliance check on sheets that have it
         for sheet_key in ['cost_biz', 'gl_biz', 'cost_sg', 'gl_sg']:
             reader = excel_readers[f'{period}_{sheet_key}']
             reconciler.check_alliance_consistency(reader, period, SHEETS[sheet_key])
