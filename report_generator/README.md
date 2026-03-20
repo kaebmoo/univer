@@ -2,20 +2,20 @@
 
 ระบบสร้างรายงาน P&L Excel สำหรับ บริษัท โทรคมนาคมแห่งชาติ จำกัด (มหาชน)
 
-## 📋 สารบัญ
+## สารบัญ
 
-- [คุณสมบัติ](#-คุณสมบัติ)
-- [โครงสร้างโปรเจค](#-โครงสร้างโปรเจค)
-- [การติดตั้ง](#-การติดตั้ง)
-- [การใช้งาน](#-การใช้งาน)
-- [การกำหนดค่า](#-การกำหนดค่า)
-- [ไฟล์ข้อมูล](#-ไฟล์ข้อมูล)
-- [การปรับแต่ง](#-การปรับแต่ง)
-- [สถานะของไฟล์](#-สถานะของไฟล์)
+- [คุณสมบัติ](#คุณสมบัติ)
+- [โครงสร้างโปรเจค](#โครงสร้างโปรเจค)
+- [การติดตั้ง](#การติดตั้ง)
+- [การใช้งาน](#การใช้งาน)
+- [การกำหนดค่า](#การกำหนดค่า)
+- [ไฟล์ข้อมูล](#ไฟล์ข้อมูล)
+- [การปรับแต่ง](#การปรับแต่ง)
+- [เอกสารเพิ่มเติม](#เอกสารเพิ่มเติม)
 
 ---
 
-## ✨ คุณสมบัติ
+## คุณสมบัติ
 
 ### รองรับ 2 มิติรายงาน
 - **COSTTYPE** - มิติประเภทต้นทุน
@@ -42,63 +42,52 @@
 
 ---
 
-## 📁 โครงสร้างโปรเจค
+## โครงสร้างโปรเจค
 
 ```
 report_generator/
-├── generate_report.py      # ✅ Entry point หลัก (ใช้งานจริง)
-├── main.py                 # ⚠️ สำหรับ CLI/Web mode (ต้อง refactor)
-├── main_generator.py       # ❌ Legacy code (ไม่ใช้แล้ว)
-├── .env                    # การตั้งค่าแบบ environment
-├── requirements.txt        # Dependencies
+├── generate_report.py        # Entry point หลัก
+├── report_concat.py          # รวมไฟล์ Excel หลายรายงาน
+├── run_reports.sh             # Batch script สร้างรายงานทั้งหมด
+├── requirements.txt
 │
-├── config/                 # ⚙️ Configuration files
-│   ├── settings.py         # ✅ ตั้งค่าหลัก (อ่านจาก .env)
-│   ├── data_mapping.py     # ✅ COSTTYPE: Label → (GROUP, SUB_GROUP)
-│   ├── data_mapping_glgroup.py  # ✅ GLGROUP: Label → (GROUP, SUB_GROUP)
-│   ├── row_order.py        # ✅ COSTTYPE: ลำดับแถวและ formulas
-│   ├── row_order_glgroup.py    # ✅ GLGROUP: ลำดับแถวและ formulas
-│   ├── report_config.py    # ⚠️ Legacy (ใช้ core/config.py แทน)
-│   └── types.py            # ✅ Enum definitions
+├── config/                    # Configuration files
+│   ├── settings.py            # ตั้งค่าหลัก (อ่านจาก .env)
+│   ├── data_mapping.py        # COSTTYPE: Label -> (GROUP, SUB_GROUP)
+│   ├── data_mapping_glgroup.py # GLGROUP: Label -> (GROUP, SUB_GROUP)
+│   ├── row_order.py           # COSTTYPE: ลำดับแถวและ formulas
+│   ├── row_order_glgroup.py   # GLGROUP: ลำดับแถวและ formulas
+│   └── satellite_config.py    # SATELLITE split configuration
 │
-├── data/                   # 📊 ข้อมูล Input
-│   ├── TRN_PL_COSTTYPE_NT_MTH_TABLE_*.csv
-│   ├── TRN_PL_COSTTYPE_NT_YTD_TABLE_*.csv
-│   ├── TRN_PL_GLGROUP_NT_MTH_TABLE_*.csv
-│   ├── TRN_PL_GLGROUP_NT_YTD_TABLE_*.csv
-│   └── remark_YYYYMMDD.txt # หมายเหตุ (ชื่อตรงกับวันที่ CSV)
-│
-├── output/                 # 📤 ไฟล์ Output Excel
+├── data/                      # ข้อมูล Input (CSV)
+├── output/                    # ไฟล์ Output (Excel)
 │
 ├── src/
-│   ├── data_loader/        # ✅ โหลดและประมวลผลข้อมูล
-│   │   ├── csv_loader.py       # อ่าน CSV
-│   │   ├── data_processor.py   # ประมวลผล DataFrame
-│   │   └── data_aggregator.py  # รวมค่าและคำนวณ
-│   │
-│   ├── report_generator/   # ✅ สร้างรายงาน Excel
-│   │   ├── core/
-│   │   │   ├── config.py       # ReportConfig, Enums
-│   │   │   └── report_builder.py  # ตัวสร้างรายงานหลัก
-│   │   ├── columns/            # สร้างโครงสร้างคอลัมน์
-│   │   ├── rows/               # สร้างโครงสร้างแถว
-│   │   ├── writers/            # เขียนลง Excel
-│   │   └── formatters/         # จัดรูปแบบ cells
-│   │
-│   ├── cli/               # ⚠️ ต้อง refactor
-│   │   ├── cli.py             # ❌ ใช้ ExcelGenerator เก่า
-│   │   └── commands.py        # ⚠️ load_remark_file มี bug
-│   │
-│   ├── web/               # 🚧 ยังไม่ implement
-│   └── calculators/       # 🚧 placeholder
+│   ├── data_loader/           # โหลดและประมวลผลข้อมูล
+│   │   ├── csv_loader.py
+│   │   ├── data_processor.py
+│   │   └── data_aggregator.py
+│   └── report_generator/      # สร้างรายงาน Excel
+│       ├── core/              # ReportConfig, ReportBuilder
+│       ├── columns/           # สร้างโครงสร้างคอลัมน์
+│       ├── rows/              # สร้างโครงสร้างแถว
+│       ├── writers/           # เขียนลง Excel
+│       └── formatters/        # จัดรูปแบบ cells
 │
-├── archive/               # 📦 Code เก่าที่เก็บไว้
-└── backup_*/              # 💾 Backups
+├── docs/                      # เอกสาร (จัดหมวดหมู่)
+│   ├── guides/                # คู่มือการใช้งาน
+│   ├── features/              # เอกสาร features
+│   ├── reconciliation/        # เอกสาร reconciliation
+│   └── development/           # ประวัติการพัฒนา
+│
+├── reconciliation/            # Reconciliation scripts
+├── tests/                     # Test files
+└── archive/                   # Code เก่าที่เก็บไว้
 ```
 
 ---
 
-## 🚀 การติดตั้ง
+## การติดตั้ง
 
 ### 1. Clone และติดตั้ง dependencies
 
@@ -117,7 +106,7 @@ cp .env.example .env
 
 ---
 
-## 💻 การใช้งาน
+## การใช้งาน
 
 ### คำสั่งพื้นฐาน
 
@@ -169,7 +158,7 @@ python generate_report.py --report-type GLGROUP --detail-level BU_ONLY
 
 ---
 
-## ⚙️ การกำหนดค่า
+## การกำหนดค่า
 
 ### ไฟล์ .env
 
@@ -207,7 +196,7 @@ WEB_PORT=9000
 
 ---
 
-## 📊 ไฟล์ข้อมูล
+## ไฟล์ข้อมูล
 
 ### CSV Files (Input)
 
@@ -240,7 +229,7 @@ remark_{YYYYMMDD}.txt
 
 ---
 
-## 🔧 การปรับแต่ง
+## การปรับแต่ง
 
 ### 1. เพิ่ม/แก้ไขแถวรายงาน
 
@@ -329,50 +318,22 @@ Formulas ที่รองรับ (กำหนดใน `row_order*.py`):
 
 ---
 
-## 📋 สถานะของไฟล์
+## เอกสารเพิ่มเติม
 
-### ✅ ใช้งานจริง
+เอกสารทั้งหมดจัดอยู่ใน `docs/` แบ่งเป็นหมวดหมู่:
 
-| File | Description |
-|------|-------------|
-| `generate_report.py` | Entry point หลัก |
-| `config/settings.py` | การตั้งค่าระบบ |
-| `config/data_mapping.py` | COSTTYPE mappings |
-| `config/data_mapping_glgroup.py` | GLGROUP mappings |
-| `config/row_order.py` | COSTTYPE row definitions |
-| `config/row_order_glgroup.py` | GLGROUP row definitions |
-| `config/types.py` | Enum definitions |
-| `src/data_loader/*` | Data loading modules |
-| `src/report_generator/*` | Report generation modules |
+| หมวด | เนื้อหา |
+| ---- | ------- |
+| [docs/guides/](docs/guides/) | คู่มือการใช้งาน, workflow, testing |
+| [docs/features/](docs/features/) | เอกสาร features (SATELLITE Split, Common Size, GLGROUP) |
+| [docs/reconciliation/](docs/reconciliation/) | เอกสาร reconciliation |
+| [docs/development/](docs/development/) | ประวัติการพัฒนา, changelogs, bug fixes |
 
-### ⚠️ ต้องปรับปรุง
-
-| File | Issue |
-|------|-------|
-| `main.py` | ใช้ cli.py ที่มีปัญหา |
-| `src/cli/cli.py` | Import ExcelGenerator ที่ไม่มีแล้ว |
-| `src/cli/commands.py` | `load_remark_file()` มี bug |
-| `config/report_config.py` | Legacy (ใช้ `core/config.py` แทน) |
-
-### ❌ ไม่ใช้แล้ว (ควรลบหรือย้าย)
-
-| File | Reason |
-|------|--------|
-| `main_generator.py` | Legacy hardcoded version |
-| `src/data_loader/*.bak` | Backup files |
-| `archive/` | Old implementations |
-| `backup_*/` | Old backups |
-
-### 🚧 ยังไม่ implement
-
-| File | Status |
-|------|--------|
-| `src/web/*` | Placeholder (FastAPI web interface) |
-| `src/calculators/*` | Placeholder |
+ดูสารบัญเอกสารทั้งหมดที่ [docs/README.md](docs/README.md)
 
 ---
 
-## 🔄 เมื่อข้อมูลเปลี่ยนแปลง
+## เมื่อข้อมูลเปลี่ยนแปลง
 
 ### เมื่อมี CSV ใหม่
 
@@ -393,7 +354,7 @@ Formulas ที่รองรับ (กำหนดใน `row_order*.py`):
 
 ---
 
-## 📝 Notes
+## Notes
 
 - **Encoding:** ไฟล์ CSV จาก SAP ใช้ TIS-620 encoding
 - **Font:** ต้องติดตั้ง TH Sarabun New ในเครื่อง
@@ -401,6 +362,6 @@ Formulas ที่รองรับ (กำหนดใน `row_order*.py`):
 
 ---
 
-## 📞 Support
+## Support
 
 สำหรับปัญหาหรือคำถาม กรุณาติดต่อทีมพัฒนา

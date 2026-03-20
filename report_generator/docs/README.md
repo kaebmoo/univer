@@ -1,62 +1,90 @@
-# Documentation
+# Report Generator - Documentation
 
-เอกสารประกอบโปรเจค Report Generator
+เอกสารประกอบระบบ Report Generator จัดเป็นหมวดหมู่ดังนี้
 
-## คู่มือการใช้งาน
+---
 
-### 📖 คู่มือหลัก
-- **[USAGE.md](USAGE.md)** - คู่มือการใช้งานแบบละเอียด
-- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - คู่มือการทดสอบระบบ
+## guides/ - คู่มือการใช้งาน
 
-### 🏗️ เอกสารสถาปัตยกรรม
-- **[REFACTOR_PLAN.md](REFACTOR_PLAN.md)** - แผนการ refactor โครงสร้างโค้ด
-- **[REPORT_GENERATOR_WORKFLOW.md](REPORT_GENERATOR_WORKFLOW.md)** - Workflow การสร้างรายงาน
+| ไฟล์ | รายละเอียด |
+| ---- | ---------- |
+| [USAGE.md](guides/USAGE.md) | คู่มือการใช้งาน generate_report.py |
+| [README_run_reports.md](guides/README_run_reports.md) | คู่มือ run_reports.sh (batch) |
+| [README_report_concat.md](guides/README_report_concat.md) | คู่มือ report_concat.py (รวมไฟล์) |
+| [TESTING_GUIDE.md](guides/TESTING_GUIDE.md) | คู่มือการทดสอบระบบ |
+| [REPORT_GENERATOR_WORKFLOW.md](guides/REPORT_GENERATOR_WORKFLOW.md) | Workflow การสร้างรายงาน |
+| [execution_flow.md](guides/execution_flow.md) | ลำดับการทำงานของโค้ด |
+| [module_usage_analysis.md](guides/module_usage_analysis.md) | วิเคราะห์การใช้งาน modules |
 
-### 📋 สถานะการพัฒนา
-- **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - สถานะการพัฒนาปัจจุบัน
-- **[CHECKLIST.md](CHECKLIST.md)** - Development checklist
-- **[COMPLETION_REPORT.md](COMPLETION_REPORT.md)** - รายงานการทำงานเสร็จสมบูรณ์
+---
 
-## เอกสาร GLGROUP
+## features/ - เอกสาร Features
 
-เอกสารเกี่ยวกับการ implement รายงาน GLGROUP:
+| ไฟล์ | รายละเอียด |
+| ---- | ---------- |
+| [SATELLITE_SPLIT_README.md](features/SATELLITE_SPLIT_README.md) | การแยกกลุ่ม SATELLITE (4.5.1 NT / 4.5.2 ไทยคม) |
+| [COMMON_SIZE_FEATURE.md](features/COMMON_SIZE_FEATURE.md) | Common Size (% ต่อรายได้รวม) |
+| [GLGROUP_IMPLEMENTATION_GUIDE.md](features/GLGROUP_IMPLEMENTATION_GUIDE.md) | การ implement มิติหมวดบัญชี (GLGROUP) |
+| [ROWS_CALCULATE.md](features/ROWS_CALCULATE.md) | สูตรคำนวณแถวสรุป (EBITDA, EBT, etc.) |
+| [fixed_number_format.md](features/fixed_number_format.md) | รูปแบบตัวเลขใน Excel |
 
-- **[GLGROUP_IMPLEMENTATION_GUIDE.md](GLGROUP_IMPLEMENTATION_GUIDE.md)** - คู่มือการ implement
-- **[GLGROUP_IMPLEMENTATION_COMPLETE.md](GLGROUP_IMPLEMENTATION_COMPLETE.md)** - บันทึกการทำงานเสร็จสิ้น
-- **[GLGROUP_TODO.md](GLGROUP_TODO.md)** - รายการสิ่งที่ต้องทำ
+---
 
-## เอกสาร Phase Development
+## reconciliation/ - เอกสาร Reconciliation
 
-บันทึกการพัฒนาแต่ละ phase:
+| ไฟล์ | รายละเอียด |
+| ---- | ---------- |
+| [Reconciliation.md](reconciliation/Reconciliation.md) | กระบวนการ reconciliation |
+| [README_Enhanced.md](reconciliation/README_Enhanced.md) | Enhanced reconciliation report |
+| [reconciliation_plan.md](reconciliation/reconciliation_plan.md) | แผนการทำ reconciliation |
+| [manual.md](reconciliation/manual.md) | คู่มือ reconciliation แบบ manual |
+| [km.md](reconciliation/km.md) | Knowledge management |
 
-### Phase 1 - Initial Setup
-- **[PHASE1_PROGRESS.md](PHASE1_PROGRESS.md)** - ความคืบหน้า Phase 1
+---
 
-### Phase 2A - Core Features
-- **[PHASE2A_COMPLETE.md](PHASE2A_COMPLETE.md)** - Phase 2A สำเร็จแล้ว
+## development/ - ประวัติการพัฒนา
 
-### Phase 2B - Modular Architecture
-- **[PHASE2B_COMPLETE.md](PHASE2B_COMPLETE.md)** - Phase 2B สำเร็จแล้ว (Architecture refactoring)
+เอกสารเหล่านี้เป็นบันทึกระหว่างการพัฒนา สำหรับอ้างอิงย้อนหลัง
 
-### Phase 2C - Detail Levels
-- **[PHASE2C_TODO.md](PHASE2C_TODO.md)** - Phase 2C tasks (3 detail levels)
+### Changelogs
 
-## เอกสารการแก้ไข
+- [CHANGELOG.md](development/CHANGELOG.md)
+- [CHANGELOG_month_support.md](development/CHANGELOG_month_support.md)
 
-- **[DATA_WRITER_FIXES.md](DATA_WRITER_FIXES.md)** - การแก้ไข Data Writer
-- **[FIX_TAX_NETPROFIT_COLORS.md](FIX_TAX_NETPROFIT_COLORS.md)** - การแก้ไขสีของ Tax และ Net Profit rows
+### สถานะโครงการ
 
-## การอ่านเอกสาร
+- [PROJECT_STATUS.md](development/PROJECT_STATUS.md)
+- [IMPLEMENTATION_STATUS.md](development/IMPLEMENTATION_STATUS.md)
+- [CHECKLIST.md](development/CHECKLIST.md)
+- [COMPLETION_REPORT.md](development/COMPLETION_REPORT.md)
 
-แนะนำให้อ่านตามลำดับนี้สำหรับผู้เริ่มต้น:
+### Phases
 
-1. [USAGE.md](USAGE.md) - เริ่มต้นใช้งาน
-2. [REPORT_GENERATOR_WORKFLOW.md](REPORT_GENERATOR_WORKFLOW.md) - เข้าใจ workflow
-3. [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) - ดูสถานะปัจจุบัน
-4. [TESTING_GUIDE.md](TESTING_GUIDE.md) - ทดสอบระบบ
+- [PHASE1_PROGRESS.md](development/PHASE1_PROGRESS.md)
+- [PHASE2A_COMPLETE.md](development/PHASE2A_COMPLETE.md)
+- [PHASE2B_COMPLETE.md](development/PHASE2B_COMPLETE.md)
+- [PHASE2C_TODO.md](development/PHASE2C_TODO.md)
 
-สำหรับ developers ที่ต้องการแก้ไขโค้ด:
+### GLGROUP Development
 
-1. [REFACTOR_PLAN.md](REFACTOR_PLAN.md) - ทำความเข้าใจ architecture
-2. [PHASE2B_COMPLETE.md](PHASE2B_COMPLETE.md) - โครงสร้างแบบ modular
-3. [GLGROUP_IMPLEMENTATION_GUIDE.md](GLGROUP_IMPLEMENTATION_GUIDE.md) - การทำงานกับ GLGROUP
+- [GLGROUP_IMPLEMENTATION_COMPLETE.md](development/GLGROUP_IMPLEMENTATION_COMPLETE.md)
+- [GLGROUP_TODO.md](development/GLGROUP_TODO.md)
+- [GLGROUP_FIX_APPLIED.md](development/GLGROUP_FIX_APPLIED.md)
+
+### Bug Fixes
+
+- [BUG_FIX_REPORT.md](development/BUG_FIX_REPORT.md)
+- [BUG_ANALYSIS_AND_FIX_PLAN.md](development/BUG_ANALYSIS_AND_FIX_PLAN.md)
+- [FIX_PRODUCT_LINE_ITEMS.md](development/FIX_PRODUCT_LINE_ITEMS.md)
+- [FIX_ROW13_14.md](development/FIX_ROW13_14.md)
+- [FIX_TAX_NETPROFIT_COLORS.md](development/FIX_TAX_NETPROFIT_COLORS.md)
+- [DATA_WRITER_FIXES.md](development/DATA_WRITER_FIXES.md)
+
+### Refactoring
+
+- [REFACTOR_PLAN.md](development/REFACTOR_PLAN.md)
+
+### Session Notes
+
+- [SUMMARY.md](development/SUMMARY.md)
+- [SESSION_SUMMARY.md](development/SESSION_SUMMARY.md)

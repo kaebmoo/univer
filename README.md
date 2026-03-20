@@ -63,38 +63,51 @@ cp .env.example .env
 npm run dev
 ```
 
-เปิดเบราว์เซอร์ที่ http://localhost:5173
+เปิดเบราว์เซอร์ที่ <http://localhost:5173>
 
-## 📁 โครงสร้างโปรเจกต์
+## โครงสร้างโปรเจกต์
 
-```
+```text
 univer/
-├── backend/              # FastAPI backend
+├── backend/                # FastAPI backend
 │   ├── app/
-│   │   ├── main.py      # FastAPI application
-│   │   ├── routers/     # API routes
-│   │   ├── services/    # Business logic
-│   │   └── models/      # Pydantic models
-│   ├── data/            # CSV data files
-│   └── tests/           # Backend tests
-├── frontend/            # React frontend
+│   │   ├── main.py         # FastAPI application
+│   │   ├── routers/        # API routes
+│   │   ├── services/       # Business logic
+│   │   └── models/         # Pydantic models
+│   ├── data/               # CSV data files
+│   └── tests/              # Backend tests
+├── frontend/               # React frontend
 │   ├── src/
-│   │   ├── components/  # React components
-│   │   ├── services/    # API services
-│   │   └── types/       # TypeScript types
+│   │   ├── components/     # React components
+│   │   ├── services/       # API services
+│   │   └── types/          # TypeScript types
 │   └── public/
-├── docs/                # Documentation
+├── report_generator/       # ระบบสร้างรายงาน Excel (standalone)
+│   ├── generate_report.py  # Entry point
+│   ├── run_reports.sh      # Batch script
+│   ├── config/             # Configuration
+│   ├── src/                # Source code
+│   └── docs/               # เอกสาร report generator
+├── docs/                   # เอกสารโปรเจกต์หลัก (จัดหมวดหมู่)
+│   ├── setup/              # Getting started, MCP setup
+│   ├── architecture/       # Data structure, performance
+│   ├── integration/        # Univer, OTP integration
+│   └── planning/           # Project plan, checklist
+├── data/                   # Data specifications
 └── README.md
 ```
 
 ## 🎯 การใช้งาน
 
 ### 1. Login
+
 - กรอก email ที่อยู่ใน domain ที่อนุญาต
 - กด "ส่ง OTP"
 - กรอก OTP ที่ได้รับทาง email (valid 5 นาที)
 
 ### 2. เลือก Filter
+
 - **เดือน**: เลือกเดือนที่ต้องการดู (สามารถเลือกหลายเดือน)
 - **ไตรมาส**: เลือก Q1, Q2, Q3, Q4
 - **ปี**: เลือกปีที่ต้องการ
@@ -106,11 +119,13 @@ univer/
 - **แสดง Common Size**: เปิด/ปิดการแสดงเปอร์เซ็นต์
 
 ### 3. สร้างรายงาน
+
 - กดปุ่ม "สร้างรายงาน"
 - รอระบบประมวลผล (2-3 วินาที)
 - รายงานจะแสดงในรูปแบบ Excel-like
 
 ### 4. ใช้งานรายงาน
+
 - **ดูข้อมูล**: เลื่อนดูข้อมูลในตาราง
 - **หุบ/ขยายรายการ**: คลิกที่ไอคอน +/- เพื่อหุบหรือขยายรายการ
 - **แก้ไขข้อมูล**: สามารถแก้ไขและคำนวณบน browser ได้ (ไม่ส่งกลับ server)
@@ -119,6 +134,7 @@ univer/
 ## 📊 รายงานที่แสดง
 
 ### โครงสร้างรายงาน P&L
+
 1. **รายได้** (7 กลุ่มธุรกิจ)
 2. **ต้นทุนบริการและต้นทุนขาย** (14 รายการ)
 3. **กำไรขั้นต้น**
@@ -133,6 +149,7 @@ univer/
 12. **อัตราส่วนต้นทุนบริการต่อรายได้**
 
 ### อัตราส่วนที่คำนวณ
+
 - **Common Size**: % เทียบกับรายได้
 - **EBIT**: Earnings Before Interest and Tax
 - **EBITDA**: Earnings Before Interest, Tax, Depreciation and Amortization
@@ -152,6 +169,7 @@ univer/
 ### กำหนด Allowed Email Domains
 
 แก้ไขไฟล์ `backend/.env`:
+
 ```env
 ALLOWED_EMAIL_DOMAINS=company.com,company.co.th,example.com
 ```
@@ -175,7 +193,7 @@ python -m app.mcp_server.server
 
 ### ตัวอย่างการใช้งานผ่าน Claude Desktop
 
-```
+```text
 User: "ช่วยดึงรายงานผลดำเนินงานเดือนมกราคม 2025 ของกลุ่มธุรกิจ Fixed Line"
 
 Claude: [เรียก MCP tool get_report_data]
@@ -191,20 +209,23 @@ Claude: [เรียก MCP tool get_report_data]
 ## 📝 API Documentation
 
 เมื่อรัน backend แล้ว สามารถดู API documentation ได้ที่:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+
+- Swagger UI: <http://localhost:8000/docs>
+- ReDoc: <http://localhost:8000/redoc>
 
 ### สำคัญ API Endpoints
 
 #### Authentication
-```
+
+```text
 POST /auth/send-otp
 POST /auth/verify-otp
 POST /auth/logout
 ```
 
 #### Report
-```
+
+```text
 POST /api/report/generate
 GET /api/filters/options
 ```
@@ -212,18 +233,21 @@ GET /api/filters/options
 ## 🧪 Testing
 
 ### Backend Tests
+
 ```bash
 cd backend
 pytest
 ```
 
 ### Frontend Tests
+
 ```bash
 cd frontend
 npm test
 ```
 
 ### Integration Tests
+
 ```bash
 # รัน backend และ frontend ก่อน
 npm run test:e2e
@@ -244,6 +268,7 @@ docker-compose up -d
 ### Manual Deployment
 
 #### Backend
+
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -251,6 +276,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 #### Frontend
+
 ```bash
 cd frontend
 npm run build
@@ -260,6 +286,7 @@ npm run build
 ## 🔧 Configuration
 
 ### Backend (.env)
+
 ```env
 # Database
 DATABASE_URL=sqlite:///./data/app.db
@@ -287,17 +314,25 @@ CORS_ORIGINS=http://localhost:5173,https://your-domain.com
 ```
 
 ### Frontend (.env)
+
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 VITE_APP_TITLE=ระบบรายงานผลดำเนินงาน
 ```
 
-## 📚 Documentation
+## Documentation
 
-- [Project Plan](./PROJECT_PLAN.md) - แผนการพัฒนาโปรเจกต์
-- [Data Structure](./docs/DATA_STRUCTURE.md) - โครงสร้างข้อมูลและการคำนวณ
-- [API Documentation](http://localhost:8000/docs) - API reference
-- [Univer Docs](https://univer.ai/docs) - Univer documentation
+เอกสารทั้งหมดจัดอยู่ใน `docs/` แบ่งเป็นหมวดหมู่:
+
+| หมวด | เนื้อหา |
+| ---- | ------- |
+| [docs/setup/](docs/setup/) | Getting Started, MCP Setup |
+| [docs/architecture/](docs/architecture/) | Data Structure, Performance, Specification |
+| [docs/integration/](docs/integration/) | Univer Integration, OTP Migration |
+| [docs/planning/](docs/planning/) | Project Plan, Checklist |
+| [report_generator/docs/](report_generator/docs/) | เอกสาร Report Generator (features, guides, reconciliation) |
+
+API reference: <http://localhost:8000/docs> (เมื่อรัน backend แล้ว)
 
 ## 🤝 Contributing
 
