@@ -193,3 +193,4 @@ report_generator/reconciliation/pld_nt_20251031.txt
 *.txt
 report_generator/reconciliation/km.md
 .claude/settings.local.json
+/report_generator/reconciliation/pl-reconciliation-app/node_modules
