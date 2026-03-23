@@ -64,20 +64,6 @@ export function FileUploadPanel({ files, onFilesClassified, onFileRemove, disabl
       />
       <FileList keys={CSV_KEYS} files={files} onRemove={onFileRemove} />
 
-      {/* Excel Browse */}
-      <DropZone
-        icon={<FileSpreadsheet className="w-5 h-5 text-green-600" />}
-        title="Excel Reports"
-        subtitle="เลือก 2 ไฟล์: Report MTH + Report YTD"
-        count={excelCount}
-        total={2}
-        accept=".xlsx,.xls"
-        inputRef={excelRef}
-        onChange={handleBrowse}
-        disabled={disabled}
-      />
-      <FileList keys={EXCEL_KEYS} files={files} onRemove={onFileRemove} />
-
       {/* Optional Browse */}
       <DropZone
         icon={<FileText className="w-5 h-5 text-amber-500" />}
@@ -92,6 +78,20 @@ export function FileUploadPanel({ files, onFilesClassified, onFileRemove, disabl
         optional
       />
       <FileList keys={OPTIONAL_KEYS} files={files} onRemove={onFileRemove} />
+
+      {/* Excel Browse */}
+      <DropZone
+        icon={<FileSpreadsheet className="w-5 h-5 text-green-600" />}
+        title="Excel Reports"
+        subtitle="เลือก 2 ไฟล์: Report MTH + Report YTD"
+        count={excelCount}
+        total={2}
+        accept=".xlsx,.xls"
+        inputRef={excelRef}
+        onChange={handleBrowse}
+        disabled={disabled}
+      />
+      <FileList keys={EXCEL_KEYS} files={files} onRemove={onFileRemove} />
     </div>
   );
 }
@@ -131,31 +131,31 @@ function DropZone({
       onClick={() => inputRef.current?.click()}
       disabled={disabled}
       className={cn(
-        'w-full flex items-center gap-4 p-4 rounded-lg border-2 border-dashed transition-colors text-left',
+        'w-full flex items-center gap-4 rounded-[22px] border p-4 text-left transition-colors sm:p-5',
         allDone
-          ? 'border-green-300 bg-green-50'
-          : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50',
+          ? 'border-emerald-200 bg-emerald-50/75'
+          : 'border-black/8 bg-white/70 hover:border-[var(--app-accent)]/35 hover:bg-white/90',
         disabled && 'opacity-50 cursor-not-allowed',
       )}
     >
       <div className="shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-800 text-sm">{title}</span>
+          <span className="font-medium text-gray-900 text-sm">{title}</span>
           {!optional && count < total && (
             <span className="text-xs text-red-500 font-medium">*จำเป็น</span>
           )}
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+        <p className="text-xs text-[var(--app-muted)] mt-0.5">{subtitle}</p>
       </div>
       <div className="shrink-0 flex items-center gap-2">
         <span className={cn(
           'text-sm font-medium',
-          allDone ? 'text-green-600' : 'text-gray-400',
+          allDone ? 'text-emerald-700' : 'text-[var(--app-muted)]',
         )}>
           {count}/{total}
         </span>
-        <Upload className="w-4 h-4 text-gray-400" />
+        <Upload className="w-4 h-4 text-[var(--app-muted)]" />
       </div>
       <input
         ref={inputRef}
@@ -182,17 +182,17 @@ function FileList({
   if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 pl-2">
+    <div className="flex flex-wrap gap-2 pl-1">
       {items.map(key => {
         const file = files[key] as File;
         return (
           <div
             key={key}
-            className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-xs"
+            className="flex items-center gap-1.5 rounded-full border border-black/8 bg-white/80 px-3 py-1.5 text-xs"
           >
             <FileCheck className="w-3 h-3 text-green-500 shrink-0" />
-            <span className="text-gray-500">{getFileLabel(key as FileKey)}:</span>
-            <span className="text-gray-800 font-medium truncate max-w-[180px]">{file.name}</span>
+            <span className="text-[var(--app-muted)]">{getFileLabel(key as FileKey)}:</span>
+            <span className="text-gray-900 font-medium truncate max-w-[180px]">{file.name}</span>
             <button
               onClick={() => onRemove(key)}
               className="text-gray-300 hover:text-red-500 ml-1"
@@ -206,7 +206,7 @@ function FileList({
       {keys.filter(k => !files[k]).map(key => (
         <div
           key={key}
-          className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 text-xs"
+          className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/85 px-3 py-1.5 text-xs"
         >
           <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
           <span className="text-amber-700">{getFileLabel(key as FileKey)}</span>

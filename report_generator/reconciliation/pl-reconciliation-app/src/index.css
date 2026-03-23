@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+:root {
+	color-scheme: light;
+	--app-bg: #f4f1ea;
+	--app-surface: rgba(255, 255, 255, 0.82);
+	--app-surface-strong: rgba(255, 255, 255, 0.94);
+	--app-border: rgba(33, 30, 24, 0.09);
+	--app-border-strong: rgba(33, 30, 24, 0.16);
+	--app-ink: #171411;
+	--app-muted: #6e675f;
+	--app-accent: #1f5eff;
+	--app-accent-soft: rgba(31, 94, 255, 0.1);
+	--app-success: #177245;
+	--app-danger: #c03a2b;
+	--app-shadow: 0 12px 30px rgba(34, 26, 14, 0.07);
+}
+
+html {
+	background:
+		radial-gradient(circle at top left, rgba(31, 94, 255, 0.08), transparent 30%),
+		radial-gradient(circle at top right, rgba(213, 166, 50, 0.08), transparent 28%),
+		var(--app-bg);
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	color: var(--app-ink);
+	font-family: "IBM Plex Sans Thai", "IBM Plex Sans", "Sarabun", "Noto Sans Thai", sans-serif;
+	background: transparent;
+}
+
+#root {
+	min-height: 100vh;
+}
+
+::selection {
+	background: rgba(31, 94, 255, 0.18);
+}
+
+.surface-panel {
+	background: var(--app-surface);
+	border: 1px solid var(--app-border);
+	box-shadow: var(--app-shadow);
+	backdrop-filter: blur(14px);
+}
+
+.surface-panel-strong {
+	background: var(--app-surface-strong);
+	border: 1px solid var(--app-border-strong);
+	box-shadow: var(--app-shadow);
+	backdrop-filter: blur(18px);
+}
+
+.utility-kicker {
+	font-size: 0.7rem;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--app-muted);
+}
+
+.soft-grid {
+	background-image:
+		linear-gradient(rgba(23, 20, 17, 0.03) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(23, 20, 17, 0.03) 1px, transparent 1px);
+	background-size: 18px 18px;
+	background-position: -1px -1px;
+}
+
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-rise-in {
+	animation: rise-in 420ms ease-out both;
+}

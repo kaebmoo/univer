@@ -78,8 +78,7 @@ export function ResultsTable({ results }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -87,13 +86,13 @@ export function ResultsTable({ results }: Props) {
             placeholder="ค้นหา..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-2xl border border-black/8 bg-white/80 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
           />
         </div>
         <select
           value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value as 'ALL' | 'PASS' | 'FAIL'); setPage(1); }}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-2xl border border-black/8 bg-white/80 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
         >
           <option value="ALL">ทุกสถานะ ({results.length})</option>
           <option value="PASS">ผ่าน ({totalPass})</option>
@@ -102,22 +101,21 @@ export function ResultsTable({ results }: Props) {
         <select
           value={categoryFilter}
           onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg max-w-[300px] truncate focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="max-w-[300px] truncate rounded-2xl border border-black/8 bg-white/80 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
         >
           {categories.map(c => (
             <option key={c} value={c}>{c === 'ALL' ? 'ทุกหมวด' : c}</option>
           ))}
         </select>
 
-        {/* Export filtered — inline button, uses filtered data directly */}
         <button
           onClick={handleExportFiltered}
           disabled={filtered.length === 0}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors',
+            'flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-medium transition-colors',
             filtered.length === 0
-              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+              ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
           )}
         >
           <Download className="w-3 h-3" />
@@ -125,13 +123,12 @@ export function ResultsTable({ results }: Props) {
         </button>
       </div>
 
-      {/* Table */}
       {pageRows.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">ไม่มีข้อมูล</p>
+        <p className="py-8 text-center text-sm text-[var(--app-muted)]">ไม่มีข้อมูล</p>
       ) : (
-        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <div className="overflow-x-auto rounded-[24px] border border-black/8 bg-white/78">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs uppercase bg-gray-50 text-gray-600 sticky top-0">
+            <thead className="sticky top-0 bg-[rgba(244,241,234,0.95)] text-[11px] uppercase tracking-[0.14em] text-[var(--app-muted)]">
               <tr>
                 <th className="px-3 py-2.5 font-semibold w-8 text-center">#</th>
                 <th className="px-3 py-2.5 font-semibold">หมวด</th>
@@ -142,14 +139,14 @@ export function ResultsTable({ results }: Props) {
                 <th className="px-3 py-2.5 font-semibold text-center">สถานะ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-black/5">
               {pageRows.map((r, i) => {
                 const rowNum = (safePage - 1) * PAGE_SIZE + i + 1;
                 return (
-                  <tr key={i} className={cn('hover:bg-gray-50', !r.passed && 'bg-red-50/30')}>
-                    <td className="px-3 py-2 text-gray-400 text-xs text-center">{rowNum}</td>
-                    <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate text-xs" title={r.category}>{r.category}</td>
-                    <td className="px-3 py-2 font-medium text-gray-800 max-w-[250px] truncate" title={r.check_name}>{r.check_name}</td>
+                  <tr key={i} className={cn('hover:bg-black/[0.02]', !r.passed && 'bg-red-50/35')}>
+                    <td className="px-3 py-2 text-center text-xs text-gray-400">{rowNum}</td>
+                    <td className="max-w-[200px] truncate px-3 py-2 text-xs text-[var(--app-muted)]" title={r.category}>{r.category}</td>
+                    <td className="max-w-[250px] truncate px-3 py-2 font-medium text-gray-900" title={r.check_name}>{r.check_name}</td>
                     <td className="px-3 py-2 text-right tabular-nums" title={r.source_label}>
                       {fmt(r.source_value)}
                     </td>
@@ -161,8 +158,8 @@ export function ResultsTable({ results }: Props) {
                     </td>
                     <td className="px-3 py-2 text-center">
                       {r.passed
-                        ? <span className="inline-flex items-center gap-0.5 text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-xs font-medium"><CheckCircle className="w-3 h-3" />PASS</span>
-                        : <span className="inline-flex items-center gap-0.5 text-red-700 bg-red-50 px-2 py-0.5 rounded-full text-xs font-medium"><XCircle className="w-3 h-3" />FAIL</span>
+                        ? <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"><CheckCircle className="w-3 h-3" />PASS</span>
+                        : <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700"><XCircle className="w-3 h-3" />FAIL</span>
                       }
                     </td>
                   </tr>
@@ -173,10 +170,9 @@ export function ResultsTable({ results }: Props) {
         </div>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--app-muted)]">
             แสดง {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ
           </p>
           <div className="flex items-center gap-1">
