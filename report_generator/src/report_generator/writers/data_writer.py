@@ -155,8 +155,8 @@ class DataWriter:
             if is_ratio_row and previous_label:
                 storage_key = f"{previous_label}|{label}"
                 all_row_data[storage_key] = row_data
-            # For other sub-items (level 1), use main_group composite key
-            elif row_def.level == 1 and current_main_group_label:
+            # For sub-items (level >= 1), use main_group composite key
+            elif row_def.level >= 1 and current_main_group_label:
                 storage_key = f"{current_main_group_label}|{label}"
                 all_row_data[storage_key] = row_data
             else:
@@ -203,8 +203,8 @@ class DataWriter:
             if is_ratio_row_pass2 and previous_label:
                 lookup_key = f"{previous_label}|{label}"
                 row_data = all_row_data.get(lookup_key, {})
-            # For other sub-items (level 1), use main_group composite key
-            elif row_def.level == 1 and current_main_group_label:
+            # For sub-items (level >= 1), use main_group composite key
+            elif row_def.level >= 1 and current_main_group_label:
                 lookup_key = f"{current_main_group_label}|{label}"
                 row_data = all_row_data.get(lookup_key, {})
             else:

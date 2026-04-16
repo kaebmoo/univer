@@ -271,48 +271,49 @@ class DataAggregator:
 
         # Get GROUP and SUB_GROUP for this row, using context
         group, sub_group = get_group_sub_group(row_label, main_group_label)
-        
+
         # Debug logging for expense sub-items
         if "ค่าใช้จ่ายตอบแทนแรงงาน" in row_label:
             logger.info(f"get_row_data: '{row_label}' → GROUP={group}, SUB_GROUP={sub_group}, main_group={main_group_label}")
-            # Also check what value we get
-            test_value = self.get_value(group, sub_group, None, None)
-            logger.info(f"  → GRAND_TOTAL value = {test_value:,.2f}")
 
         if group is None:
             return result
 
+        # Handle multi-SUB_GROUP (list) by summing across all sub_groups
+        sub_groups = sub_group if isinstance(sub_group, list) else [sub_group]
+
         # For each BU and its service groups
         for bu in bu_list:
-            # BU total
             bu_total_key = f"BU_TOTAL_{bu}"
-            result[bu_total_key] = self.get_value(group, sub_group, bu, None)
+            result[bu_total_key] = sum(
+                self.get_value(group, sg_id, bu, None) for sg_id in sub_groups
+            )
 
-            # Service groups under this BU
             service_groups = service_group_dict.get(bu, [])
             for sg in service_groups:
                 sg_key = f"{bu}_{sg}"
-                result[sg_key] = self.get_value(group, sub_group, bu, sg)
+                result[sg_key] = sum(
+                    self.get_value(group, sg_id, bu, sg) for sg_id in sub_groups
+                )
 
             # Add SATELLITE summary key (for ratio calculations)
             if ENABLE_SATELLITE_SPLIT:
                 satellite_sgs = get_satellite_service_group_names()
-                # Check if any satellite SG exists in this BU's service groups
                 has_satellite = any(sg in satellite_sgs for sg in service_groups)
                 if has_satellite:
-                    # Calculate satellite summary
                     satellite_sum = sum(
-                        self.get_value(group, sub_group, bu, sg)
+                        self.get_value(group, sg_id, bu, sg)
+                        for sg_id in sub_groups
                         for sg in satellite_sgs
                         if sg in service_groups
                     )
-                    # Use the same key format as satellite_summary column
                     summary_key = f"{bu}_{SATELLITE_SUMMARY_ID}"
                     result[summary_key] = satellite_sum
-                    logger.debug(f"get_row_data: Added satellite summary key '{summary_key}' = {satellite_sum:,.2f}")
 
         # Grand total
-        result["GRAND_TOTAL"] = self.get_value(group, sub_group, None, None)
+        result["GRAND_TOTAL"] = sum(
+            self.get_value(group, sg_id, None, None) for sg_id in sub_groups
+        )
 
         return result
 
@@ -1161,16 +1162,22 @@ class DataAggregator:
         group = mapping[0]
         sub_group = mapping[1]
         service_group_filter = mapping[2] if len(mapping) > 2 else None
-        
+
         if not group:
             return {}
-        
-        # Filter by GROUP and SUB_GROUP
-        filtered = self.df[
-            (self.df['GROUP'] == group) & 
-            (self.df['SUB_GROUP'] == sub_group)
-        ]
-        
+
+        # Filter by GROUP and SUB_GROUP (support list of SUB_GROUPs)
+        if isinstance(sub_group, list):
+            filtered = self.df[
+                (self.df['GROUP'] == group) &
+                (self.df['SUB_GROUP'].isin(sub_group))
+            ]
+        else:
+            filtered = self.df[
+                (self.df['GROUP'] == group) &
+                (self.df['SUB_GROUP'] == sub_group)
+            ]
+
         # Additional SERVICE_GROUP filter for detail rows
         if service_group_filter:
             filtered = filtered[filtered['SERVICE_GROUP'] == service_group_filter]
