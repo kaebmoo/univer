@@ -209,6 +209,19 @@ class DataAggregator:
         if service_group is None:
             return 0  # Product-level requires SERVICE_GROUP
 
+        if isinstance(sub_group, list):
+            total = 0
+            service_key = service_group if service_group else "_TOTAL_"
+            for sub_key in sub_group:
+                if sub_key in self.lookup_with_products[group] and bu in self.lookup_with_products[group][sub_key]:
+                    if service_key in self.lookup_with_products[group][sub_key][bu]:
+                        if product_key is None:
+                            total += sum(self.lookup_with_products[group][sub_key][bu][service_key].values())
+                        else:
+                            product_key_str = str(product_key)
+                            total += self.lookup_with_products[group][sub_key][bu][service_key].get(product_key_str, 0)
+            return total
+
         sub_key = sub_group if sub_group else "_TOTAL_"
 
         # If sub_key not found, sum across all sub_groups

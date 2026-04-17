@@ -19,6 +19,18 @@ if ($Period -ne "") {
     }
 }
 
+# Ensure this script works from its own directory
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location -Path $scriptDir
+
+# Prefer the project's virtual environment python if available
+$venvPython = Join-Path $scriptDir "..\.venv\Scripts\python.exe"
+if (Test-Path $venvPython) {
+    $python = $venvPython
+} else {
+    $python = "python"
+}
+
 # Function to extract unique months from CSV files
 function Get-AvailableMonths {
     $csvFiles = Get-ChildItem -Path "data\*.csv" -ErrorAction SilentlyContinue
@@ -41,6 +53,20 @@ function Get-AvailableMonths {
     return $months | Sort-Object
 }
 
+function Run-Python {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$Args
+    )
+
+    Write-Host "Running: $python $($Args -join ' ')"
+    & $python @Args
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: Python command failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+}
+
 # Function to generate reports for a specific month
 function Generate-ReportsForMonth {
     param(
@@ -61,25 +87,25 @@ function Generate-ReportsForMonth {
     # --- YTD Period ---
     if ($PeriodFilter -eq "" -or $PeriodFilter -eq "YTD") {
         Write-Host "Processing YTD Reports..."
-        python generate_report.py --report-type COSTTYPE  --period YTD --month $MonthParam
-        python generate_report.py --report-type COSTTYPE  --period YTD --detail-level BU_SG --month $MonthParam
-        python generate_report.py --report-type COSTTYPE  --period YTD --detail-level BU_ONLY --month $MonthParam
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "YTD", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "YTD", "--detail-level", "BU_SG", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "YTD", "--detail-level", "BU_ONLY", "--month", $MonthParam)
 
-        python generate_report.py --report-type GLGROUP  --period YTD --month $MonthParam
-        python generate_report.py --report-type GLGROUP  --period YTD --detail-level BU_SG --month $MonthParam
-        python generate_report.py --report-type GLGROUP  --period YTD --detail-level BU_ONLY --month $MonthParam
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "YTD", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "YTD", "--detail-level", "BU_SG", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "YTD", "--detail-level", "BU_ONLY", "--month", $MonthParam)
     }
 
     # --- MTH Period ---
     if ($PeriodFilter -eq "" -or $PeriodFilter -eq "MTH") {
         Write-Host "Processing MTH Reports..."
-        python generate_report.py --report-type COSTTYPE  --period MTH --month $MonthParam
-        python generate_report.py --report-type COSTTYPE  --period MTH --detail-level BU_SG --month $MonthParam
-        python generate_report.py --report-type COSTTYPE  --period MTH --detail-level BU_ONLY --month $MonthParam
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "MTH", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "MTH", "--detail-level", "BU_SG", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "COSTTYPE", "--period", "MTH", "--detail-level", "BU_ONLY", "--month", $MonthParam)
 
-        python generate_report.py --report-type GLGROUP  --period MTH --month $MonthParam
-        python generate_report.py --report-type GLGROUP  --period MTH --detail-level BU_SG --month $MonthParam
-        python generate_report.py --report-type GLGROUP  --period MTH --detail-level BU_ONLY --month $MonthParam
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "MTH", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "MTH", "--detail-level", "BU_SG", "--month", $MonthParam)
+        Run-Python -Args @("generate_report.py", "--report-type", "GLGROUP", "--period", "MTH", "--detail-level", "BU_ONLY", "--month", $MonthParam)
     }
 
     Write-Host "Done: Completed reports for month $MonthParam"
@@ -122,9 +148,9 @@ Write-Host "--- Individual Report Files Generated Successfully ---"
 Write-Host ""
 Write-Host "--- Starting Report Concatenation ---"
 if ($Month -ne "") {
-    python report_concat.py --month $Month
+    Run-Python -Args @("report_concat.py", "--month", $Month)
 } else {
-    python report_concat.py
+    Run-Python -Args @("report_concat.py")
 }
 
 Write-Host ""

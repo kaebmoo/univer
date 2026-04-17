@@ -312,15 +312,24 @@ def run_reconciliation(config: CombinedFileConfig):
 def main():
     """ฟังก์ชันหลัก"""
 
+    import argparse
     from pathlib import Path
+
+    parser = argparse.ArgumentParser(description='P&L Reconciliation for Combined Output File')
+    parser.add_argument('--date', required=True, help='Date in YYYYMMDD format (e.g., 20260331)')
+    args = parser.parse_args()
+
+    date = args.date
+    date_short = date[:6]  # YYYYMM for Excel file
+
     script_dir = Path(__file__).resolve().parent
     data_dir = script_dir / 'data'
 
     config = CombinedFileConfig(
-        combined_file=str(data_dir / 'pl_combined_output_202510.xlsx'),
-        source_gl_csv_mth=str(data_dir / 'TRN_PL_GLGROUP_NT_MTH_TABLE_20251031.csv'),
-        source_gl_csv_ytd=str(data_dir / 'TRN_PL_GLGROUP_NT_YTD_TABLE_20251031.csv'),
-        financial_stmt_txt=str(data_dir / 'pld_nt_20251031.txt')
+        combined_file=str(data_dir / f'pl_combined_output_{date_short}.xlsx'),
+        source_gl_csv_mth=str(data_dir / f'TRN_PL_GLGROUP_NT_MTH_TABLE_{date}.csv'),
+        source_gl_csv_ytd=str(data_dir / f'TRN_PL_GLGROUP_NT_YTD_TABLE_{date}.csv'),
+        financial_stmt_txt=str(data_dir / f'pld_nt_{date}.txt')
     )
 
     run_reconciliation(config)

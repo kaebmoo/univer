@@ -31,6 +31,13 @@ REM Execute PowerShell script
 REM Capture exit code from PowerShell
 set EXIT_CODE=%ERRORLEVEL%
 
+REM Check if there were errors
+if %EXIT_CODE% neq 0 (
+    echo ERROR: Report generation failed with exit code %EXIT_CODE%
+    pause
+    exit /b %EXIT_CODE%
+)
+
 REM Pause to show results
 pause
 
