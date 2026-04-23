@@ -191,6 +191,8 @@ report_generator/output/correct_report.pdf
 report_generator/output/archive/correct_report.pdf
 report_generator/reconciliation/pld_nt_20251031.txt
 *.txt
+!**/requirements.txt
+!**/requirements-*.txt
 report_generator/reconciliation/km.md
 .claude/settings.local.json
 /report_generator/reconciliation/pl-reconciliation-app/node_modules
