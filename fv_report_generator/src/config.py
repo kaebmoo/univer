@@ -1,6 +1,6 @@
 """FV report configuration — fonts, colors, layout constants."""
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, List, Optional
 
 
 _DEFAULT_BU_COLORS = {
@@ -15,6 +15,32 @@ _DEFAULT_BU_COLORS = {
     "8.รายได้อื่น/ค่าใช้จ่ายอื่น": "EAC1C0",
     "9.บริการตามนโยบายภาครัฐ": "FFF2CC",
 }
+
+
+@dataclass
+class MandatoryRow:
+    """A row that must always appear in the report, even when absent from the CSV.
+
+    Attributes
+    ----------
+    display_label:
+        The text shown in the label column (e.g. '8. ต้นทุนทางการเงิน-ด้านการจัดหาเงิน').
+    insert_after_code:
+        Parent-section code after whose *last row* (including sub-rows) this
+        row will be injected.  E.g. '07' to insert after all Depreciation rows.
+    section_code:
+        The section code to assign (used by reconciler to locate the row).
+        Should match the numeric prefix of display_label.
+    is_bold:
+        Whether to render the label in bold (default True for section rows).
+    color:
+        Optional fill color hex (without '#').  Defaults to section_color.
+    """
+    display_label: str
+    insert_after_code: str
+    section_code: str
+    is_bold: bool = True
+    color: Optional[str] = None  # None → use config.section_color
 
 
 @dataclass
@@ -51,6 +77,16 @@ class FVConfig:
     # Period info (set per run)
     period_year_be: int = 0       # Buddhist Era year (e.g., 2568)
     period_label: str = ""        # Display string for "ประจำเดือน X YYYY"
+
+    # Rows that must always appear even when absent from the CSV.
+    # Inserted in order after the section specified by insert_after_code.
+    mandatory_rows: List[MandatoryRow] = field(default_factory=lambda: [
+        MandatoryRow(
+            display_label="8. ต้นทุนทางการเงิน-ด้านการจัดหาเงิน",
+            insert_after_code="07",
+            section_code="08",
+        ),
+    ])
 
     def bu_color(self, bu_canonical_or_raw: str) -> str:
         """Look up BU background color, with leading-zero tolerance."""

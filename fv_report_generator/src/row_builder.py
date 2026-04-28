@@ -165,4 +165,42 @@ def build_rows(
                     display_label=_sub2_display(sub2_raw),
                     row_key=(section_canonical, sub1_canonical, sub2_canonical),
                 ))
+    # ------------------------------------------------------------------
+    # Inject mandatory rows that must appear even when absent from CSV.
+    # Each MandatoryRow is inserted after the last row whose
+    # parent_section_code matches insert_after_code.
+    # ------------------------------------------------------------------
+    # Build set of section codes already present from CSV data
+    codes_present = {
+        rd.parent_section_code
+        for rd in rows
+        if rd.is_section and rd.parent_section_code is not None
+    }
+
+    for mr in getattr(config, "mandatory_rows", []):
+        # Skip if this section already came from the CSV
+        if mr.section_code in codes_present:
+            continue
+
+        # Find insertion point: after the last row belonging to insert_after_code
+        insert_idx = None
+        for idx, rd in enumerate(rows):
+            if rd.parent_section_code == mr.insert_after_code:
+                insert_idx = idx  # keep updating → ends at last row of that section
+
+        if insert_idx is None:
+            # Anchor section not found — append to end as fallback
+            insert_idx = len(rows) - 1
+
+        mandatory_rd = RowDef(
+            row_type="section",
+            display_label=mr.display_label,
+            row_key=(canonical(mr.display_label), None, None),
+            is_bold=mr.is_bold,
+            color=mr.color if mr.color is not None else config.section_color,
+            is_section=True,
+            parent_section_code=mr.section_code,
+        )
+        rows.insert(insert_idx + 1, mandatory_rd)
+
     return rows

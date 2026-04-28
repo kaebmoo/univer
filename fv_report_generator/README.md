@@ -32,11 +32,13 @@ python3 generate_fv_report.py \
 
 - `--period-key` (optional) — TIME_KEY ที่จะ filter เช่น `202514` ถ้าไม่ระบุจะ infer จากชื่อไฟล์ (รองรับ Buddhist Era: `Y2568 → 2025`)
 - `--encoding` (default `tis-620`) — encoding ของ CSV; มี fallback อัตโนมัติเป็น `cp874` / `utf-8-sig` / `utf-8`
-- `--reconcile` (optional) — หลังเขียนไฟล์เสร็จ จะเปิด output xlsx ที่เพิ่งสร้างกลับขึ้นมา แล้วเทียบทุก cell กับ pivot ที่คำนวณจาก CSV ตัวเดิม (verify pipeline end-to-end ทั้ง aggregator + writer ในครั้งเดียว)
+- `--reconcile` — รัน **ทุก layer การตรวจ** หลังเขียนไฟล์เสร็จ (ดูด้านล่าง)
+- `--reconcile-invariants` — ตรวจ aggregation pipeline อย่างเดียว (ไม่ต้องรอ xlsx)
+- `--reconcile-rules` — ตรวจ accounting identity ใน xlsx โดยตรง (ไม่ใช้ CSV เป็น reference)
 - `--sheet` (default `Report_FV`) — ชื่อ sheet ที่จะเขียนใน workbook ใหม่
 - `-v` — verbose log
 
-ตัวอย่างพร้อม reconcile (verify output ตรงกับ CSV ต้นทาง):
+ตัวอย่างพร้อม reconcile ครบทุก layer:
 
 ```bash
 python3 generate_fv_report.py \
@@ -46,6 +48,19 @@ python3 generate_fv_report.py \
 ```
 
 CSV เปลี่ยนทุกเดือน ก็ใช้ flag `--reconcile` ได้ทุกงวด — ไม่ต้องมีไฟล์อ้างอิงภายนอก
+
+### Verification layers
+
+| Flag | Layer | ตรวจอะไร | ต้องมี xlsx |
+|---|---|---|---|
+| `--reconcile` | 1 — Invariant A | `GRAND_TOTAL == Σ BU_TOTAL == Σ SG_TOTAL == Σ PRODUCT` (ใน pivot) | ❌ |
+| `--reconcile` | 2 — Invariant B | raw CSV `groupby.sum()` per GROUP ตรงกับ pivot | ❌ |
+| `--reconcile` | 3 — Invariant C | `%กำไรส่วนเกิน = CM / Revenue` (ตรวจ formula) | ❌ |
+| `--reconcile` | 4 — Cell-by-cell | ทุก cell ใน xlsx ตรงกับ pivot ที่ re-compute จาก CSV | ✅ |
+| `--reconcile` | 5 — P&L chain (xlsx) | `CM=Rev−Var`, `EBITDA=CM−Fixed`, `EBIT=EBITDA−Depr`, `EBT=EBIT−Int` | ✅ |
+| `--reconcile` | 6 — Col hierarchy (xlsx) | `GRAND_TOTAL==ΣBU`, `BU==ΣSG`, `SG==ΣProduct` อ่านจาก xlsx โดยตรง | ✅ |
+| `--reconcile-invariants` | 1–3 เท่านั้น | ตรวจ aggregation logic ก่อน generate | ❌ |
+| `--reconcile-rules` | 5–6 เท่านั้น | ตรวจ xlsx self-consistency โดยไม่ใช้ CSV | ✅ |
 
 ## โครงสร้าง
 
@@ -62,7 +77,7 @@ fv_report_generator/
 │   ├── derived.py              # %กำไรส่วนเกิน = section3 / section1 ต่อ column
 │   ├── config.py               # FVConfig (font, BU colors, layout)
 │   ├── report_builder.py       # Orchestrator
-│   ├── reconciler.py           # QA: re-read output xlsx + เทียบทุก cell กับ pivot จาก CSV
+│   ├── reconciler.py           # QA: 3 ชั้นการตรวจ — cell-by-cell, invariants, business rules
 │   └── writers/                # cell_formatter, header_writer, column_header_writer, data_writer
 ├── tests/
 └── output/
@@ -83,7 +98,10 @@ python3 -m pytest tests/ -v
 - **Percent row recomputation** — `%กำไรส่วนเกิน` คำนวณ per column จาก `section3 / section1` แทนที่จะ sum (CSV's GROUP `33.` เก็บ % per-product ที่ไม่ summable จึงถูก drop ออก)
 - **Satellite split** — SG `4.5 SATELLITE` ถูกแยกเป็น 4.5.1 (NT) / 4.5.2 (ไทยคม) ตาม `report_generator/config/satellite_config.py` (reuse ผ่าน `satellite_split.py`)
 - **Reuse จาก `report_generator/`** — `CSVLoader` (Thai encoding fallback) และ `satellite_config` (NT/ไทยคม mapping) ใช้ผ่าน `sys.path` injection
-- **Reconciliation เป็น optional** — `--reconcile` re-read output xlsx ที่เพิ่งสร้าง แล้วเทียบทุก cell กับ pivot ที่คำนวณจาก CSV ตัวเดิม ไม่พึ่ง template ภายนอก ตรวจ pipeline ทั้ง aggregator + writer end-to-end ในครั้งเดียว
+- **Multi-layer reconciliation** — `reconciler.py` มี 3 ฟังก์ชันอิสระจากกัน:
+  - `reconcile()` — cell-by-cell เทียบ xlsx กับ pivot (จับ writer bug)
+  - `reconcile_invariants()` — ตรวจ invariant ของ pivot กับ raw CSV (จับ aggregation bug)
+  - `reconcile_business_rules()` — อ่านจาก xlsx โดยตรง ตรวจ P&L chain และ column hierarchy (จับ accounting inconsistency แม้ระบบอื่นผ่านหมด)
 
 ## Output format
 
