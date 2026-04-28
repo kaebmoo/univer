@@ -57,7 +57,7 @@ CSV เปลี่ยนทุกเดือน ก็ใช้ flag `--reconc
 | `--reconcile` | 2 — Invariant B | raw CSV `groupby.sum()` per GROUP ตรงกับ pivot | ❌ |
 | `--reconcile` | 3 — Invariant C | `%กำไรส่วนเกิน = CM / Revenue` (ตรวจ formula) | ❌ |
 | `--reconcile` | 4 — Cell-by-cell | ทุก cell ใน xlsx ตรงกับ pivot ที่ re-compute จาก CSV | ✅ |
-| `--reconcile` | 5 — P&L chain (xlsx) | `CM=Rev−Var`, `EBITDA=CM−Fixed`, `EBIT=EBITDA−Depr`, `EBT=EBIT−Int` | ✅ |
+| `--reconcile` | 5 — P&L chain (xlsx) | `CM=(01)−(02)`, `(05)=CM−(04)`, `EBT=(05)+(06)−(07)−(08)`, `Net=(09)−(10)` | ✅ |
 | `--reconcile` | 6 — Col hierarchy (xlsx) | `GRAND_TOTAL==ΣBU`, `BU==ΣSG`, `SG==ΣProduct` อ่านจาก xlsx โดยตรง | ✅ |
 | `--reconcile-invariants` | 1–3 เท่านั้น | ตรวจ aggregation logic ก่อน generate | ❌ |
 | `--reconcile-rules` | 5–6 เท่านั้น | ตรวจ xlsx self-consistency โดยไม่ใช้ CSV | ✅ |
