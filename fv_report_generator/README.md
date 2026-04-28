@@ -83,7 +83,7 @@ python3 -m pytest tests/ -v
 - **Percent row recomputation** — `%กำไรส่วนเกิน` คำนวณ per column จาก `section3 / section1` แทนที่จะ sum (CSV's GROUP `33.` เก็บ % per-product ที่ไม่ summable จึงถูก drop ออก)
 - **Satellite split** — SG `4.5 SATELLITE` ถูกแยกเป็น 4.5.1 (NT) / 4.5.2 (ไทยคม) ตาม `report_generator/config/satellite_config.py` (reuse ผ่าน `satellite_split.py`)
 - **Reuse จาก `report_generator/`** — `CSVLoader` (Thai encoding fallback) และ `satellite_config` (NT/ไทยคม mapping) ใช้ผ่าน `sys.path` injection
-- **Reconciliation ยังเป็น optional** — `--reconcile-against` ใช้ template สำหรับ QA เท่านั้น ไม่ใช่ในการ generate
+- **Reconciliation เป็น optional** — `--reconcile` re-read output xlsx ที่เพิ่งสร้าง แล้วเทียบทุก cell กับ pivot ที่คำนวณจาก CSV ตัวเดิม ไม่พึ่ง template ภายนอก ตรวจ pipeline ทั้ง aggregator + writer end-to-end ในครั้งเดียว
 
 ## Output format
 
