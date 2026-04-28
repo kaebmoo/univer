@@ -1,8 +1,49 @@
 # FV Report Generator
 
-สร้างรายงาน VCFC (Variable/Fixed Cost) Y2568 งวด P14 ตามแบบ sheet `Report_P14` ในไฟล์ `Report_FV_Y2568(P14).XLSX` จากข้อมูล data-warehouse CSV `TRN_FV_Datawarehouse_Y*(P*).csv`
+สร้างรายงานต้นทุนคงที่/ผันแปร (VCFC) แบบ **data-driven** จาก CSV ของ data-warehouse `TRN_FV_Datawarehouse_Y*(P*).csv` โครงสร้างของรายงาน — ทั้ง row, column, header, สี BU, format ตัวเลข — สร้างจากข้อมูลใน CSV ทั้งหมด ไม่ต้องใช้ template Excel เลย
 
-Pipeline: CSV (long format) → canonicalize labels → pivot by row_key × col_key → copy template file → clear data area → fill cells. Header formatting, merged cells, สี, font ถูก preserve จาก template
+เมื่อข้อมูลใน CSV เปลี่ยน (มี product เพิ่ม/ลด, มี row ใหม่ เช่น ER, มี SG/BU เปลี่ยน) รายงานจะปรับโครงสร้างให้อัตโนมัติ ไม่ต้องแก้ template ด้วยมือ
+
+## ติดตั้ง
+
+ต้องการ Python 3.10 ขึ้นไป
+
+```bash
+cd fv_report_generator
+
+# (แนะนำ) สร้าง virtual environment
+python3 -m venv .venv
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate            # Windows
+
+# ติดตั้ง dependency
+pip install -r requirements.txt
+```
+
+`requirements.txt` มีแค่ 3 ตัว: `pandas`, `openpyxl`, `pytest`
+
+## การใช้งาน
+
+```bash
+python3 generate_fv_report.py \
+    --csv-file "/path/to/TRN_FV_Datawarehouse_Y2568(P14).csv" \
+    --output output/Report_FV_P14.xlsx
+```
+
+- `--period-key` (optional) — TIME_KEY ที่จะ filter เช่น `202514` ถ้าไม่ระบุจะ infer จากชื่อไฟล์ (รองรับ Buddhist Era: `Y2568 → 2025`)
+- `--encoding` (default `tis-620`) — encoding ของ CSV; มี fallback อัตโนมัติเป็น `cp874` / `utf-8-sig` / `utf-8`
+- `--reconcile-against <Report_FV_*.XLSX>` (optional) — เทียบค่า pivot กับ sheet `Data_P14` ของไฟล์ template เพื่อ QA หา value mismatch
+- `--sheet` (default `Report_P14`) — ชื่อ sheet ที่จะเขียนใน workbook ใหม่
+- `-v` — verbose log
+
+ตัวอย่างพร้อม reconcile:
+
+```bash
+python3 generate_fv_report.py \
+    --csv-file "/path/to/TRN_FV_Datawarehouse_Y2568(P14).csv" \
+    --output output/Report_FV_P14.xlsx \
+    --reconcile-against "/path/to/Report_FV_Y2568(P14).XLSX"
+```
 
 ## โครงสร้าง
 
@@ -10,53 +51,43 @@ Pipeline: CSV (long format) → canonicalize labels → pivot by row_key × col_
 fv_report_generator/
 ├── generate_fv_report.py       # CLI entry point
 ├── src/
-│   ├── data_loader.py          # CSV loader (reuse report_generator.CSVLoader + fallback encoding)
-│   ├── normalizer.py           # Canonical form สำหรับ match label ระหว่าง CSV กับ template
-│   ├── template_reader.py      # แกะ row/col hierarchy + merged ranges จาก Report_P14 sheet
-│   ├── satellite_split.py      # NT vs ไทยคม split (reuse report_generator/config/satellite_config.py)
-│   ├── pivoter.py              # Long → wide pivot, aggregate ที่ทุกระดับ (GRAND / BU / SG / SUBSG / PRODUCT)
-│   ├── derived.py              # Compute %กำไรส่วนเกิน = contribution margin / revenue
-│   ├── writer.py               # Template-copy writer: clear data area + set cells
-│   └── reconciler.py           # เทียบ CSV pivot กับ sheet Data_P14
-├── tests/                      # pytest
-└── output/                     # generated .xlsx files
+│   ├── data_loader.py          # CSV loader (รองรับ TIS-620 / CP874 / UTF-8)
+│   ├── normalizer.py           # canonical(label) / canonical_product_key()
+│   ├── satellite_split.py      # 4.5 SATELLITE → NT / ไทยคม mapping
+│   ├── aggregator.py           # CSV → {(row_key, col_key): value} + enumerate helpers
+│   ├── column_builder.py       # BU → SG → SUBSG → PRODUCT column structure
+│   ├── row_builder.py          # GROUP → SUB_GROUP1 → SUB_GROUP2 row structure
+│   ├── derived.py              # %กำไรส่วนเกิน = section3 / section1 ต่อ column
+│   ├── config.py               # FVConfig (font, BU colors, layout)
+│   ├── report_builder.py       # Orchestrator
+│   ├── reconciler.py           # QA: เทียบกับ sheet Data_P14
+│   └── writers/                # cell_formatter, header_writer, column_header_writer, data_writer
+├── tests/
+└── output/
 ```
 
-## การใช้งาน
-
-```bash
-python3 generate_fv_report.py \
-    --csv-file "/path/TRN_FV_Datawarehouse_Y2568(P14).csv" \
-    --template "/path/Report_FV_Y2568(P14).XLSX" \
-    --output "output/Report_FV_P14.xlsx" \
-    --reconcile
-```
-
-- `--period-key` auto-inferred จาก filename (รองรับ Buddhist Era: `Y2568 → 2025`)
-- `--reconcile` (optional) เทียบ pivot กับ sheet Data_P14 → log mismatches ถ้ามี
-- `--sheet` (default `Report_P14`) กรณี template ใช้ชื่อ sheet อื่น
-
-## Run tests
+## รัน tests
 
 ```bash
 python3 -m pytest tests/ -v
 ```
 
+ถ้ามีไฟล์ CSV + Report_FV ที่ `/Users/seal/Documents/NT/Report/vcfc/` test `test_reconcile_end_to_end.py` จะรัน end-to-end เทียบกับ Data_P14 ด้วย; ถ้าไม่มีจะถูก skip โดยอัตโนมัติ
+
 ## Design decisions
 
-- **Template-copy writer** เลือกวิธีนี้แทนการ write workbook ใหม่ทั้งหมด เพราะ header 5 แถว + 78 merged ranges + font TH Sarabun New + สี BU จะ preserve ให้อัตโนมัติ — เราเพียง clear data area (rows 10+, cols C+) แล้ว fill ค่าใหม่เท่านั้น
-- **Canonical labels** ใช้ normalizer กลาง (`src/normalizer.py`) ที่ strip numeric prefix (`4.5.1`, `01.`), VC/FC suffix, punctuation differences (`(1)-(2)` vs `(1) (2)`), และ whitespace ให้ CSV กับ template match กัน
-- **Reuse จาก `report_generator/`**: `CSVLoader` สำหรับ TIS-620/CP874 encoding fallback, และ `config/satellite_config.py` สำหรับ NT/ไทยคม split mapping
-- **Percent row (`%กำไรส่วนเกิน`)** คำนวณหลัง fill row อื่นแล้ว (ratio = row78/row10) เพราะ sum percentage ไม่มี meaning
-- **Row label alias** เช่น template row 139 "5. กำไร(ขาดทุน)ก่อนต้นทุนจัดหาเงิน..." จับคู่กับ CSV GROUP "05.ต้นทุนจัดหาเงิน..." ผ่าน explicit map ใน `template_reader._ROW_LABEL_ALIASES`
-- **SG truncation alias** template บาง SG (`5.4 APPLICATION & DIGITAL SE`) ถูก truncate เทียบกับ CSV → pivoter build prefix-match alias อัตโนมัติ
+- **Data-driven structure** — โครงรายงานสร้างจากเนื้อหาใน CSV ทั้งหมด ไม่อ่าน template ตอน runtime ทำให้รายงานสะท้อนข้อมูลจริงเสมอ และรองรับ schema ที่เปลี่ยนไปตามงวด
+- **Permissive row/column emission** — ถ้า CSV มี row/product ใหม่ที่ไม่เคยมี → emit เพิ่มท้าย section ที่ตรง; ถ้า CSV ไม่มี product/row ที่เคยมี → ไม่ emit เลย (ไม่มี cell ว่างทิ้ง)
+- **Percent row recomputation** — `%กำไรส่วนเกิน` คำนวณ per column จาก `section3 / section1` แทนที่จะ sum (CSV's GROUP `33.` เก็บ % per-product ที่ไม่ summable จึงถูก drop ออก)
+- **Satellite split** — SG `4.5 SATELLITE` ถูกแยกเป็น 4.5.1 (NT) / 4.5.2 (ไทยคม) ตาม `report_generator/config/satellite_config.py` (reuse ผ่าน `satellite_split.py`)
+- **Reuse จาก `report_generator/`** — `CSVLoader` (Thai encoding fallback) และ `satellite_config` (NT/ไทยคม mapping) ใช้ผ่าน `sys.path` injection
+- **Reconciliation ยังเป็น optional** — `--reconcile-against` ใช้ template สำหรับ QA เท่านั้น ไม่ใช่ในการ generate
 
-## Known differences vs. original Report_P14
+## Output format
 
-รัน `--reconcile` แล้ว 0 value mismatches กับ Data_P14 แต่ output มี diffs กับ Report_P14 ดังนี้ (ไม่ใช่ bug):
-
-- **Row 147 (กำไรสุทธิ) แบ่ง per BU/product**: CSV มีข้อมูลครบ generator จึง populate หมด แต่ template เดิมเว้น cell ส่วนใหญ่ไว้
-- **Row 140/141/142 (ผลตอบแทนทางการเงิน + รายได้อื่น)**: template แสดง 716M (318M + 398M) แต่ CSV GROUP 06 ทั้งหมด = 762M → มี 46M ที่ template หักออก (manual adjustment)
-- **Row 143 (ค่าใช้จ่ายอื่น)**: คล้ายกัน CSV = 141M vs template = 96M
-
-ถ้าต้องการ match template 1:1 อย่างเคร่ง ต้องเพิ่ม override layer สำหรับ manual adjustments เหล่านี้
+- 5-row column header: BU / SG / SUBSG / PRODUCT_KEY / PRODUCT_NAME
+- Number format: accounting style — positive `1,234.00`, negative red `(1,234.00)`, zero blank
+- Percent row: `0.00%`
+- Font: TH Sarabun New 14
+- BU coloring + merged header cells preserved
+- Title rows (B1/B2/B3) ชิดซ้าย
