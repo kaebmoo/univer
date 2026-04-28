@@ -64,11 +64,11 @@ def main():
     parser.add_argument("--period-key", type=int, help="TIME_KEY (e.g. 202514). Auto-inferred from filename.")
     parser.add_argument("--encoding", default="tis-620")
     parser.add_argument(
-        "--reconcile-against",
-        type=Path,
-        help="Path to a Report_FV_*.XLSX containing a Data_P14 sheet to cross-check against.",
+        "--reconcile",
+        action="store_true",
+        help="After writing, re-read the output workbook and verify each cell matches the source CSV.",
     )
-    parser.add_argument("--sheet", default="Report_P14")
+    parser.add_argument("--sheet", default="Report_FV", help="Output sheet name (default: Report_FV)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -112,16 +112,17 @@ def main():
     )
     log.info("done: %s", out_path)
 
-    if args.reconcile_against:
-        log.info("reconciling against %s", args.reconcile_against)
-        result = reconcile(args.reconcile_against, pivot)
+    if args.reconcile:
+        log.info("reconciling output %s against source CSV", out_path)
+        result = reconcile(out_path, df, config, period_key=period_key, sheet_name=args.sheet)
         if result.mismatches:
-            log.warning("  %d value mismatches vs Data_P14", len(result.mismatches))
-            for rk, ck, pv, dv, diff in result.mismatches[:10]:
-                log.warning("    %s × %s: pivot=%.2f data=%.2f diff=%+.2f", rk, ck, pv, dv, diff)
+            log.warning("  %d cell mismatches (of %d checked)",
+                        len(result.mismatches), result.cells_checked)
+            for label, col_disp, act, exp, diff in result.mismatches[:10]:
+                log.warning("    [%s] × [%s]: xlsx=%.2f csv=%.2f diff=%+.2f",
+                            label, col_disp, act, exp, diff)
         else:
-            log.info("  0 value mismatches")
-        log.info("  %d pivot-only keys, %d data-only keys", len(result.csv_only), len(result.data_only))
+            log.info("  OK — %d cells verified, 0 mismatches", result.cells_checked)
     return 0
 
 

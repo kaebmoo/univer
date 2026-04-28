@@ -21,7 +21,7 @@ def generate_report(
     output_path: Path,
     config: FVConfig,
     period_key: Optional[int] = None,
-    sheet_name: str = "Report_P14",
+    sheet_name: str = "Report_FV",
 ) -> Path:
     """Build the FV report workbook from CSV data."""
     pivot = aggregator.build_pivot(df, period_key=period_key)

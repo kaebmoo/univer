@@ -32,18 +32,20 @@ python3 generate_fv_report.py \
 
 - `--period-key` (optional) — TIME_KEY ที่จะ filter เช่น `202514` ถ้าไม่ระบุจะ infer จากชื่อไฟล์ (รองรับ Buddhist Era: `Y2568 → 2025`)
 - `--encoding` (default `tis-620`) — encoding ของ CSV; มี fallback อัตโนมัติเป็น `cp874` / `utf-8-sig` / `utf-8`
-- `--reconcile-against <Report_FV_*.XLSX>` (optional) — เทียบค่า pivot กับ sheet `Data_P14` ของไฟล์ template เพื่อ QA หา value mismatch
-- `--sheet` (default `Report_P14`) — ชื่อ sheet ที่จะเขียนใน workbook ใหม่
+- `--reconcile` (optional) — หลังเขียนไฟล์เสร็จ จะเปิด output xlsx ที่เพิ่งสร้างกลับขึ้นมา แล้วเทียบทุก cell กับ pivot ที่คำนวณจาก CSV ตัวเดิม (verify pipeline end-to-end ทั้ง aggregator + writer ในครั้งเดียว)
+- `--sheet` (default `Report_FV`) — ชื่อ sheet ที่จะเขียนใน workbook ใหม่
 - `-v` — verbose log
 
-ตัวอย่างพร้อม reconcile:
+ตัวอย่างพร้อม reconcile (verify output ตรงกับ CSV ต้นทาง):
 
 ```bash
 python3 generate_fv_report.py \
     --csv-file "/path/to/TRN_FV_Datawarehouse_Y2568(P14).csv" \
     --output output/Report_FV_P14.xlsx \
-    --reconcile-against "/path/to/Report_FV_Y2568(P14).XLSX"
+    --reconcile
 ```
+
+CSV เปลี่ยนทุกเดือน ก็ใช้ flag `--reconcile` ได้ทุกงวด — ไม่ต้องมีไฟล์อ้างอิงภายนอก
 
 ## โครงสร้าง
 
@@ -60,7 +62,7 @@ fv_report_generator/
 │   ├── derived.py              # %กำไรส่วนเกิน = section3 / section1 ต่อ column
 │   ├── config.py               # FVConfig (font, BU colors, layout)
 │   ├── report_builder.py       # Orchestrator
-│   ├── reconciler.py           # QA: เทียบกับ sheet Data_P14
+│   ├── reconciler.py           # QA: re-read output xlsx + เทียบทุก cell กับ pivot จาก CSV
 │   └── writers/                # cell_formatter, header_writer, column_header_writer, data_writer
 ├── tests/
 └── output/
@@ -72,7 +74,7 @@ fv_report_generator/
 python3 -m pytest tests/ -v
 ```
 
-ถ้ามีไฟล์ CSV + Report_FV ที่ `/Users/seal/Documents/NT/Report/vcfc/` test `test_reconcile_end_to_end.py` จะรัน end-to-end เทียบกับ Data_P14 ด้วย; ถ้าไม่มีจะถูก skip โดยอัตโนมัติ
+ถ้ามีไฟล์ CSV ที่ `/Users/seal/Documents/NT/Report/vcfc/` test `test_reconcile_end_to_end.py` จะ generate output xlsx + reconcile ทุก cell vs CSV ให้อัตโนมัติ; ถ้าไม่มีไฟล์จะถูก skip
 
 ## Design decisions
 
