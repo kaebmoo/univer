@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """
-FV Report Generator — produce a Report_P14-style Excel file from the FV
-data-warehouse CSV extract.
+FV Report Generator (data-driven) — produce a Report_P14-style Excel file
+purely from the FV data-warehouse CSV. Row/column structure adapts to the
+data: new products, removed products, new line items appear/disappear
+automatically.
 
-Basic usage
-    python generate_fv_report.py                 # auto-detect CSV + template
+Usage:
     python generate_fv_report.py \\
         --csv-file /path/to/TRN_FV_Datawarehouse_Y2568(P14).csv \\
-        --template /path/to/Report_FV_Y2568(P14).XLSX \\
-        --period-key 202514 \\
-        --reconcile
-
-The generator copies the template workbook, clears its data area, and fills in
-freshly pivoted values. All header formatting, merged cells, fonts, and column
-widths are preserved from the template.
+        --output output/Report_FV_P14.xlsx \\
+        [--reconcile-against /path/to/Report_FV_*.XLSX]
 """
 import argparse
 import logging
@@ -21,45 +17,58 @@ import re
 import sys
 from pathlib import Path
 
+from src.config import FVConfig
 from src.data_loader import load_fv_csv
-from src.derived import compute_contribution_margin_percent
-from src.pivoter import apply_pivot_to_schema, build_pivot
 from src.reconciler import reconcile
-from src.template_reader import read_template
-from src.writer import write_report
+from src.report_builder import generate_report
 
 
 _PERIOD_FROM_NAME = re.compile(r"Y(\d{4}).*?\(P?(\d{1,2})\)", re.IGNORECASE)
 
+_THAI_MONTHS = [
+    "", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
+]
 
-def infer_period_key(csv_path: Path) -> int | None:
-    """Derive TIME_KEY (e.g. 202514) from filename like '...Y2568(P14).csv'.
 
-    Filename uses Buddhist Era (BE); CSV TIME_KEY uses Gregorian (CE = BE - 543).
-    """
+def infer_period_key(csv_path: Path):
     m = _PERIOD_FROM_NAME.search(csv_path.name)
     if not m:
-        return None
-    year = int(m.group(1))
+        return None, None
+    year_be = int(m.group(1))
     period = int(m.group(2))
-    if year >= 2400:  # Buddhist Era → convert to Gregorian
-        year -= 543
-    return year * 100 + period
+    year_ce = year_be - 543 if year_be >= 2400 else year_be
+    return year_ce * 100 + period, year_be
+
+
+def _period_label(year_be: int, period: int) -> str:
+    """Format the row-3 period label, e.g.:
+    'ประจำเดือน ธันวาคม  2568   (ก่อนผู้สอบบัญชีรับรอง_งวด 14)'
+    Period 1..12 = the month directly. Period 13 = year-end. Period 14 = audit close.
+    """
+    if 1 <= period <= 12:
+        return f"ประจำเดือน {_THAI_MONTHS[period]}  {year_be}   (งวด {period})"
+    if period == 13:
+        return f"งวดสะสม 12 เดือน  {year_be}   (งวด {period})"
+    return f"ประจำเดือน ธันวาคม  {year_be}   (ก่อนผู้สอบบัญชีรับรอง_งวด {period})"
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate an FV (Fixed/Variable cost) report Excel file from the data-warehouse CSV.",
+        description="Generate the FV (Fixed/Variable cost) report from a data-warehouse CSV.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--csv-file", type=Path, required=True, help="Path to TRN_FV_Datawarehouse_*.csv")
-    parser.add_argument("--template", type=Path, required=True, help="Path to Report_FV_*(P*).XLSX template")
-    parser.add_argument("--output", type=Path, help="Output .xlsx (default: output/Report_FV_P<period>.xlsx)")
-    parser.add_argument("--period-key", type=int, help="TIME_KEY to filter CSV (e.g. 202514). Auto-inferred from filename.")
-    parser.add_argument("--sheet", default="Report_P14", help="Target sheet name (default: Report_P14)")
-    parser.add_argument("--encoding", default="tis-620", help="CSV encoding (default: tis-620)")
-    parser.add_argument("--reconcile", action="store_true", help="Cross-check pivot against Data_P14 sheet")
+    parser.add_argument("--csv-file", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--period-key", type=int, help="TIME_KEY (e.g. 202514). Auto-inferred from filename.")
+    parser.add_argument("--encoding", default="tis-620")
+    parser.add_argument(
+        "--reconcile-against",
+        type=Path,
+        help="Path to a Report_FV_*.XLSX containing a Data_P14 sheet to cross-check against.",
+    )
+    parser.add_argument("--sheet", default="Report_P14")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -72,47 +81,47 @@ def main():
     if not args.csv_file.exists():
         log.error("CSV not found: %s", args.csv_file)
         return 1
-    if not args.template.exists():
-        log.error("Template not found: %s", args.template)
-        return 1
 
-    period_key = args.period_key or infer_period_key(args.csv_file)
+    period_key = args.period_key
+    year_be = None
+    if period_key is None:
+        period_key, year_be = infer_period_key(args.csv_file)
     if period_key is None:
         log.error("Could not infer --period-key from filename %s; pass it explicitly.", args.csv_file.name)
         return 1
-    log.info("period_key = %s", period_key)
+    period_num = period_key % 100
+    if year_be is None:
+        year_ce = period_key // 100
+        year_be = year_ce + 543
 
     if args.output is None:
-        args.output = Path("output") / f"Report_FV_P{period_key % 100}.xlsx"
+        args.output = Path("output") / f"Report_FV_P{period_num}.xlsx"
+
+    config = FVConfig(
+        period_year_be=year_be,
+        period_label=_period_label(year_be, period_num),
+    )
 
     log.info("loading CSV %s", args.csv_file)
     df = load_fv_csv(args.csv_file, encoding=args.encoding)
-    log.info("  %d rows loaded", len(df))
+    log.info("  %d rows", len(df))
 
-    log.info("reading template %s", args.template)
-    schema = read_template(args.template, sheet_name=args.sheet)
-    log.info("  %d template rows / %d template cols mapped", len(schema.data_rows), len(schema.col_map))
+    log.info("generating report (period_key=%s)", period_key)
+    out_path, pivot = generate_report(
+        df, args.output, config, period_key=period_key, sheet_name=args.sheet,
+    )
+    log.info("done: %s", out_path)
 
-    log.info("building pivot")
-    pivot = build_pivot(df, period_key=period_key, col_map=schema.col_map)
-
-    if args.reconcile:
-        log.info("reconciling against Data_P14")
-        result = reconcile(args.template, pivot)
+    if args.reconcile_against:
+        log.info("reconciling against %s", args.reconcile_against)
+        result = reconcile(args.reconcile_against, pivot)
         if result.mismatches:
             log.warning("  %d value mismatches vs Data_P14", len(result.mismatches))
             for rk, ck, pv, dv, diff in result.mismatches[:10]:
                 log.warning("    %s × %s: pivot=%.2f data=%.2f diff=%+.2f", rk, ck, pv, dv, diff)
         else:
             log.info("  0 value mismatches")
-        log.info("  %d pivot-only keys, %d data-only keys (likely header-label mismatches)",
-                 len(result.csv_only), len(result.data_only))
-
-    cells = apply_pivot_to_schema(pivot, schema.row_map, schema.col_map)
-    compute_contribution_margin_percent(cells, schema)
-    log.info("writing %d cells → %s", len(cells), args.output)
-    path = write_report(args.template, args.output, cells, schema, sheet_name=args.sheet)
-    log.info("done: %s (%.1f KB)", path, path.stat().st_size / 1024)
+        log.info("  %d pivot-only keys, %d data-only keys", len(result.csv_only), len(result.data_only))
     return 0
 
 

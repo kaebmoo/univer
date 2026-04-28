@@ -10,10 +10,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.aggregator import build_pivot  # noqa: E402
 from src.data_loader import load_fv_csv  # noqa: E402
-from src.pivoter import build_pivot  # noqa: E402
 from src.reconciler import reconcile  # noqa: E402
-from src.template_reader import read_template  # noqa: E402
 
 
 TEMPLATE = Path("/Users/seal/Documents/NT/Report/vcfc/Report_FV_Y2568(P14).XLSX")
@@ -28,8 +27,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_pivot_has_no_value_mismatches_vs_data_p14():
     df = load_fv_csv(CSV)
-    schema = read_template(TEMPLATE)
-    pivot = build_pivot(df, period_key=202514, col_map=schema.col_map)
+    pivot = build_pivot(df, period_key=202514)
     result = reconcile(TEMPLATE, pivot)
     assert not result.mismatches, f"{len(result.mismatches)} value mismatches (see reconciler output)"
 
@@ -37,8 +35,7 @@ def test_pivot_has_no_value_mismatches_vs_data_p14():
 def test_known_cell_values():
     """Spot-check a handful of cells against values observed in the Dec-2568 P14 template."""
     df = load_fv_csv(CSV)
-    schema = read_template(TEMPLATE)
-    pivot = build_pivot(df, period_key=202514, col_map=schema.col_map)
+    pivot = build_pivot(df, period_key=202514)
 
     from src.normalizer import canonical  # noqa: E402
 

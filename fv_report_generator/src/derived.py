@@ -1,39 +1,23 @@
+"""Derived-row computations for the FV report.
+
+%กำไรส่วนเกิน (3)/(1) is recomputed per column from contribution margin /
+revenue rather than summed from CSV (CSV ships pre-computed per-product
+percentages under GROUP "33." that are not summable).
 """
-Derived-row computations — some template rows are ratios that can't be summed
-from raw CSV data (e.g. %กำไรส่วนเกิน = contribution margin / revenue).
-"""
+from typing import Optional
+
 from .normalizer import canonical
 
 
-def compute_contribution_margin_percent(cells: dict, schema) -> dict:
-    """Overwrite row 79 cells with (row 78) / (row 10) * 100 per column.
+_REVENUE_KEY = (canonical("01.รายได้"), None, None)
+_CM_KEY = (canonical("03.กำไรส่วนเกิน [CONTRIBUTION MARGIN] (1) (2)"), None, None)
+PERCENT_ROW_KEY = (canonical("%กำไรส่วนเกิน (3)/(1)"), None, None)
 
-    Args:
-        cells: {(row, col): value} dict, mutated in place
-        schema: TemplateSchema
 
-    Returns:
-        cells (same dict, for chaining)
-    """
-    revenue_row = schema.row_map.get((canonical("1. รายได้"), None, None))
-    cm_row = schema.row_map.get((canonical("3. กำไรส่วนเกิน [CONTRIBUTION MARGIN] (1)-(2)"), None, None))
-    pct_row = schema.row_map.get((canonical("%กำไรส่วนเกิน (3)/(1)"), None, None))
-
-    if revenue_row is None or cm_row is None or pct_row is None:
-        return cells
-
-    cols_with_pct = set()
-    for (r, c) in list(cells.keys()):
-        if r == pct_row:
-            cols_with_pct.add(c)
-            del cells[(r, c)]
-
-    for c in schema.col_map.values():
-        revenue = cells.get((revenue_row, c))
-        cm = cells.get((cm_row, c))
-        if revenue and revenue != 0:
-            cells[(pct_row, c)] = (cm or 0) / revenue * 100.0
-        elif c in cols_with_pct:
-            cells[(pct_row, c)] = 0.0
-
-    return cells
+def percent_value(pivot: dict, col_key: tuple) -> Optional[float]:
+    """Return contribution-margin / revenue for a column, or None if undefined."""
+    revenue = pivot.get((_REVENUE_KEY, col_key))
+    cm = pivot.get((_CM_KEY, col_key))
+    if not revenue:
+        return None
+    return (cm or 0.0) / revenue
